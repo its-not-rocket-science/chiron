@@ -11,7 +11,7 @@ interface MembershipWithOrg {
 interface MemberRow {
 	id: string;
 	role: 'admin' | 'teacher';
-	profiles: { display_name: string } | null;
+	profiles_public: { display_name: string } | null;
 }
 
 interface OrgLessonRow {
@@ -21,7 +21,7 @@ interface OrgLessonRow {
 	grade_level: string | null;
 	featured: boolean;
 	owner_id: string;
-	profiles: { display_name: string } | null;
+	profiles_public: { display_name: string } | null;
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [membersResult, invitesResult, lessonsResult] = await Promise.all([
 		supabase
 			.from('memberships')
-			.select('id, role, profiles(display_name)')
+			.select('id, role, profiles_public(display_name)')
 			.eq('org_id', membership.org_id)
 			.returns<MemberRow[]>(),
 		isAdmin
@@ -58,7 +58,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		supabase
 			.from('lessons')
 			.select(
-				'id, title, subject_profile_id, grade_level, featured, owner_id, profiles(display_name)'
+				'id, title, subject_profile_id, grade_level, featured, owner_id, profiles_public(display_name)'
 			)
 			.eq('org_id', membership.org_id)
 			.eq('visibility', 'org-shared')

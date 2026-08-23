@@ -310,4 +310,55 @@ describe.skipIf(!hasSupabase)('RLS — org isolation (adversarial, live Supabase
 		expect(error).not.toBeNull();
 		expect(data).toBeNull();
 	});
+
+	// --- prompts.txt Prompt A — profiles email-exposure fix (ADR-012).
+	// See supabase/migrations/0007.
+
+	it("org B's user cannot read org A user's email via a direct profiles query", async () => {
+		const direct = await userBClient.from('profiles').select('id, email').eq('id', userAId!);
+		// RLS now scopes profiles' SELECT policy to id = auth.uid() — a
+		// query for someone else's row matches zero rows, it isn't an error.
+		expect(direct.data).toEqual([]);
+	});
+
+	it('a user can still read their own email via a direct profiles query', async () => {
+		const own = await userAClient
+			.from('profiles')
+			.select('id, email')
+			.eq('id', userAId!)
+			.maybeSingle();
+		expect(own.data?.id).toBe(userAId);
+		expect(own.data?.email).toBeTruthy();
+	});
+
+	it("profiles_public still returns display_name for another org's user (by design — not the leak)", async () => {
+		const crossOrg = await userBClient
+			.from('profiles_public')
+			.select('id, display_name')
+			.eq('id', userAId!)
+			.maybeSingle();
+		expect(crossOrg.data?.id).toBe(userAId);
+		expect(crossOrg.data?.display_name).toBeTruthy();
+	});
+
+	it('profiles_public never exposes an email column at all', async () => {
+		// Not just "didn't select it" — the view itself has no such column,
+		// so asking for it is a query error, not a silently-omitted field.
+		const { error } = await userBClient
+			.from('profiles_public')
+			.select('id, email')
+			.eq('id', userAId!)
+			.maybeSingle();
+		expect(error).not.toBeNull();
+	});
+
+	it('the org member list embed resolves through profiles_public, not profiles', async () => {
+		const members = await userAClient
+			.from('memberships')
+			.select('id, profiles_public(display_name)')
+			.eq('org_id', orgAId);
+		expect(members.error).toBeNull();
+		expect(members.data?.length).toBeGreaterThan(0);
+		expect(members.data?.[0]).toHaveProperty('profiles_public');
+	});
 });

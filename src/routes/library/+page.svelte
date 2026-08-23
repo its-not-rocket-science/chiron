@@ -144,7 +144,7 @@
 									{#if lesson.grade_level}
 										· Grade {lesson.grade_level}
 									{/if}
-									· by {lesson.profiles?.display_name ?? 'a teacher'}
+									· by {lesson.profiles_public?.display_name ?? 'a teacher'}
 								</p>
 								{#if lesson.lesson_versions?.scores}
 									{@const s = lesson.lesson_versions.scores}
@@ -197,7 +197,7 @@
 									{#if lesson.grade_level}
 										· Grade {lesson.grade_level}
 									{/if}
-									· by {lesson.profiles?.display_name ?? 'a teacher'}
+									· by {lesson.profiles_public?.display_name ?? 'a teacher'}
 								</p>
 								{#if lesson.lesson_versions?.scores}
 									{@const s = lesson.lesson_versions.scores}

@@ -155,10 +155,13 @@ pins (tried during bootstrap; not worth the fragility it introduces).
 
 ## ADR-006: Rate limiting mechanism
 
-**Date:** 2026-08-22, revised 2026-08-23 (Prompt 11)
+**Date:** 2026-08-22, revised 2026-08-23 (Prompt 11), re-confirmed
+2026-08-23 (`prompts.txt` Prompt B)
 **Status:** Partially accepted — an in-memory per-IP limiter is
 implemented and live-tested; the "shared store for multi-instance
 deployments" half is still open, blocked on the hosting decision below.
+**Deliberately deferred again as of Prompt B** — see the dated note at
+the end of this entry for what was checked before re-confirming that.
 
 **Decision:** `src/lib/server/rateLimit.ts` — a per-process, in-memory
 sliding-window limiter keyed by client IP — gates `POST
@@ -192,6 +195,26 @@ target is decided and needs multiple instances, or (b) abuse is
 observed that a single-instance limiter can't catch (e.g. distributed
 across many IPs — this limiter does nothing against that shape of
 abuse, only per-IP spam).
+
+**2026-08-23 re-confirmation (`prompts.txt` Prompt B):** Checked
+whether anything has changed since this ADR was written that would make
+the DB-backed option no longer optional. It hasn't: `docs/ARCHITECTURE.md`
+Section 11, open question 2 ("deployment target adapter") is still
+literally open — ADR-005 picked the `adapter-node` _adapter_, but the
+actual hosting platform, and specifically whether it runs more than one
+instance of the app, remains undecided. No multi-instance deployment
+exists to protect. Re-confirming Option 2 ("defer, but harden") from
+this pass rather than building the Supabase-backed counter now:
+the in-memory limiter is unchanged (`src/lib/server/rateLimit.ts`), and
+the trigger conditions above are re-affirmed as still accurate, with
+one addition for concreteness: (c) the hosting decision specifically
+lands on a platform that runs multiple instances by default for a
+Node/`adapter-node` deployment (e.g. a PaaS with autoscaling replicas,
+or manually running >1 process behind a load balancer) — at that point
+trigger (a) is satisfied automatically and Option 1 (a Supabase-backed
+`RateLimiter` behind the same interface, refactoring `checkRateLimit`
+into an interface first) becomes the next thing to build, not just a
+documented possibility.
 
 ---
 
@@ -451,5 +474,143 @@ visibility — there's no "keep it org-shared" option, matching the spec's
 "save-a-copy... creates a new private LessonVersion." The rest of
 `copy_lesson` follows the same id-generation/no-`RETURNING` pattern as
 `save_lesson` (ADR-010) for `lesson_versions`/`scores`.
+
+---
+
+## ADR-012: Close the profiles email-exposure gap with a `profiles_public` view
+
+**Date:** 2026-08-23
+**Status:** Accepted
+
+**Decision:** `supabase/migrations/0007_profiles_public_view.sql` locks
+`profiles`' own SELECT policy to `id = auth.uid()` and adds a
+`profiles_public` view (`id, display_name` only) that every cross-user
+`profiles(...)` embed in the app now reads instead. This is option (a)
+from `docs/SECURITY.md`'s "documented, not fixed" writeup on the
+`profiles.email` exposure gap.
+
+**Why:** `profiles`' SELECT policy was `using (true)` since Prompt 8 —
+a deliberate MVP simplification, but a real one: any signed-in user
+could read any other user's email directly via PostgREST
+(`GET /rest/v1/profiles?select=email`), not just through Chiron's UI.
+A view is the standard Postgres/Supabase pattern for this shape of
+problem — it lets `account/org` (member list, lesson-authorship
+attribution) and `library` (lesson-authorship attribution) keep working
+exactly as before, since PostgREST resolves the FK relationship through
+the view the same way it resolved it through the table, while the
+underlying table itself no longer leaks `email` to anyone but its owner.
+
+**Implementation notes:**
+
+- `profiles_public` is deliberately _not_ `security_invoker` — Postgres
+  view defaults to running RLS checks as the view _owner_ (the
+  migration role, which has `BYPASSRLS` in Supabase), which is what
+  lets it show every user's `display_name` to any authenticated caller
+  even though `profiles`' own policy is now `id = auth.uid()`. Getting
+  this backwards (`security_invoker = true`) would have made
+  `profiles_public` inherit the _restrictive_ policy and return nothing
+  for anyone but the caller's own row — the opposite of the point of
+  the view. This is exactly the kind of behavior ADR-010 says not to
+  reason about from the SQL alone; it's covered by a live test
+  (`tests/rls/orgIsolation.spec.ts`: "profiles_public still returns
+  display_name for another org's user").
+- Every `profiles(...)` embed found by grepping the codebase
+  (`src/routes/account/org/+page.server.ts` — member list and org
+  lesson list; `src/routes/library/+page.server.ts` — library lesson
+  list) was rewritten to `profiles_public(...)`, and the corresponding
+  `.svelte` templates and TypeScript row interfaces updated to match
+  (`profiles` → `profiles_public` field name). `invites/[token]`
+  doesn't embed `profiles` at all — it reads `org_invites.email`, the
+  invite's own column, unrelated to this gap.
+- No current route reads the signed-in user's _own_ email from
+  `profiles` (the layout gets it from `locals.user.email`, i.e.
+  Supabase Auth's own user object, not the `profiles` table) — so there
+  was nothing to migrate there. Confirmed, not just assumed: a live
+  test proves a user can still read their own `profiles` row (email
+  included) directly, in case a future settings page needs to.
+
+**Alternatives considered:**
+
+- Column-level `REVOKE`/`GRANT` on `email` (option (b) in the original
+  writeup): also viable, but PostgREST's grant model interacts with
+  RLS in less commonly-documented ways than the view approach, and the
+  view keeps the fix legible in one place (one new object) rather than
+  a column-permission change that's easy to overlook when reading the
+  table's policies later.
+
+**Consequences:** Any _new_ feature that needs to show one user's info
+to another (a future "invited by" display, an assignee picker, etc.)
+must read `profiles_public`, never embed `profiles` directly across
+users — `email` should never again be requested in a query whose result
+crosses to a different user than the one who ran it.
+
+---
+
+## ADR-013: Enforce the upload size cap by reading the request body as a stream, not via `request.formData()`
+
+**Date:** 2026-08-24
+**Status:** Accepted
+
+**Decision:** `/api/lessons/upload/+server.ts` no longer calls
+`request.formData()` directly. `readFormDataWithSizeCap()` reads
+`request.body` chunk-by-chunk via its `ReadableStreamDefaultReader`,
+tallying bytes as they arrive, and cancels the reader the instant the
+running total exceeds `MAX_UPLOAD_SIZE_BYTES` — returning `413` without
+ever handing the oversized body to a parser. Only once the cap is
+confirmed _not_ exceeded are the collected chunks handed to
+`Response#formData()` (the same standard multipart parser
+`request.formData()` itself uses internally) to produce the `FormData`
+the rest of the handler already expected.
+
+**Why:** `docs/SECURITY.md` Section 3 documented a real gap: a client
+that omits `Content-Length` (chunked transfer encoding) skipped the
+existing pre-check entirely, because `request.formData()` fully
+buffers the whole body in memory before any size check runs against
+it — the 10MB cap existed in name only for such a client. This makes
+the cap actually structural: enforcement happens _while_ reading, so
+an oversized body is never fully buffered regardless of what headers
+the client sends.
+
+**Implementation notes:**
+
+- Deliberately reuses `Response#formData()` for the actual multipart
+  parsing rather than hand-rolling a boundary parser against the
+  collected bytes — parsing untrusted multipart input is exactly the
+  kind of thing worth leaving to a well-tested standard implementation
+  instead of writing bespoke, security-sensitive parsing code for it.
+- `reader.cancel()` is called on the exceeded-cap path specifically so
+  the underlying connection stops being read from immediately, rather
+  than continuing to drain a socket that's already known to be
+  oversized — verified via a test that the stream's own `cancel()`
+  callback fires and that only a fraction of the total chunks were
+  ever pulled (`src/routes/api/lessons/upload/uploadSizeCap.spec.ts`).
+- The existing `Content-Length`-based pre-check (added in Prompt 11)
+  is kept as a fast path — cheap to check and rejects obviously
+  oversized requests before any streaming read starts — but the
+  streaming enforcement below it is what actually closes the gap for a
+  client that omits or lies about that header.
+- Platform/reverse-proxy-level body size limits (nginx, Vercel, Fly,
+  etc.) are still worth confirming once hosting is chosen
+  (`docs/ARCHITECTURE.md` Section 11) as defense in depth, but Chiron's
+  own size enforcement no longer depends on one existing.
+
+**Alternatives considered:**
+
+- Hand-rolled multipart boundary parsing directly against the streamed
+  bytes (to avoid the two-pass "collect chunks, then reconstruct a
+  `Response` to parse them" approach): rejected — multipart parsing has
+  a long history of parser-differential security bugs; reusing the
+  platform's own implementation is safer than a bespoke one for a
+  marginal memory saving (the collected bytes are bounded by the same
+  10MB cap either way).
+- Relying solely on a future hosting platform's default body-size
+  limit: rejected as the sole fix — it's real defense in depth once a
+  platform is chosen, but leaves the app with zero enforcement of its
+  own in the meantime, and makes the guarantee depend on a decision
+  (Section 11) that's still open.
+
+**Consequences:** Any future endpoint that accepts file uploads should
+follow the same pattern (stream-and-cap, not `request.formData()`
+directly) rather than reintroducing this bypass in a new route.
 
 ---

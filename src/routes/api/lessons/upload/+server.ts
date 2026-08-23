@@ -29,18 +29,19 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	// Reject oversized uploads before reading the body into memory, when the
-	// client sends a Content-Length header.
+	// client sends a Content-Length header. This is a fast path, not the
+	// real enforcement — a client can omit Content-Length (chunked transfer
+	// encoding) and skip straight past it, which is what the streaming read
+	// below actually guards against.
 	const contentLength = request.headers.get('content-length');
 	if (contentLength && Number(contentLength) > MAX_UPLOAD_SIZE_BYTES) {
 		return errorResponse('file_too_large', 413);
 	}
 
-	let formData: FormData;
-	try {
-		formData = await request.formData();
-	} catch {
-		return errorResponse('corrupted_file', 400);
-	}
+	const readResult = await readFormDataWithSizeCap(request);
+	if (!readResult.ok)
+		return errorResponse(readResult.error, readResult.error === 'file_too_large' ? 413 : 400);
+	const { formData } = readResult;
 
 	const file = formData.get('file');
 	if (!(file instanceof File)) {
@@ -66,4 +67,56 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 function errorResponse(code: ParseError, status: number) {
 	return json({ error: { code, message: PARSE_ERROR_MESSAGES[code] } }, { status });
+}
+
+type ReadResult =
+	{ ok: true; formData: FormData } | { ok: false; error: 'file_too_large' | 'corrupted_file' };
+
+/**
+ * Reads the request body as a stream and enforces MAX_UPLOAD_SIZE_BYTES
+ * while reading, instead of via `request.formData()`, which buffers the
+ * *entire* body in memory before we get a chance to check its size. That
+ * matters specifically for a client that omits `Content-Length` (chunked
+ * transfer encoding) — the check above never fires, and without this,
+ * an attacker could send an arbitrarily large body and have it fully
+ * buffered before `DocxPdfParserProvider` ever sees it (prompts.txt
+ * Prompt C; docs/SECURITY.md Section 3).
+ *
+ * Aborts the underlying read (`reader.cancel()`) the moment the cap is
+ * exceeded, rather than continuing to drain the socket — this is the
+ * actual size *enforcement*; the bytes collected up to that point are
+ * discarded, never handed to a parser. Once confirmed within the cap,
+ * the collected bytes are handed to `Response#formData()` (the same
+ * standard multipart parser `request.formData()` itself uses) rather
+ * than hand-rolling multipart parsing, which would be its own source of
+ * parsing bugs.
+ */
+async function readFormDataWithSizeCap(request: Request): Promise<ReadResult> {
+	if (!request.body) return { ok: true, formData: new FormData() };
+
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+
+		total += value.byteLength;
+		if (total > MAX_UPLOAD_SIZE_BYTES) {
+			await reader.cancel();
+			return { ok: false, error: 'file_too_large' };
+		}
+		chunks.push(value);
+	}
+
+	const contentType = request.headers.get('content-type') ?? '';
+	try {
+		const formData = await new Response(new Blob(chunks as BlobPart[]), {
+			headers: { 'content-type': contentType }
+		}).formData();
+		return { ok: true, formData };
+	} catch {
+		return { ok: false, error: 'corrupted_file' };
+	}
 }

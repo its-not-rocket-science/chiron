@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.from('lessons')
 		.select(
 			`id, title, subject_profile_id, grade_level, visibility, featured, org_id, owner_id,
-			 profiles(display_name),
+			 profiles_public(display_name),
 			 lesson_versions!lessons_current_version_fk(scores(dialogue_score, authenticity_score, mentoring_score))`
 		)
 		.in('visibility', ['org-shared', 'public-template']);

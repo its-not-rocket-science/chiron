@@ -58,7 +58,8 @@
 			<ul class="flex flex-col gap-1.5 text-sm text-slate-600">
 				{#each data.members ?? [] as member (member.id)}
 					<li>
-						{member.profiles?.display_name} — <span class="text-slate-400">{member.role}</span>
+						{member.profiles_public?.display_name} —
+						<span class="text-slate-400">{member.role}</span>
 					</li>
 				{/each}
 			</ul>
@@ -146,7 +147,7 @@
 							>
 								<div>
 									<span class="font-medium text-slate-800">{lesson.title}</span>
-									<span class="text-slate-400"> — by {lesson.profiles?.display_name}</span>
+									<span class="text-slate-400"> — by {lesson.profiles_public?.display_name}</span>
 								</div>
 								<form method="POST" action="?/toggleFeatured" use:enhance={wrapEnhance}>
 									<input type="hidden" name="lessonId" value={lesson.id} />

@@ -14,7 +14,7 @@ export interface LibraryLessonRow {
 	featured: boolean;
 	org_id: string | null;
 	owner_id: string;
-	profiles: { display_name: string } | null;
+	profiles_public: { display_name: string } | null;
 	lesson_versions: {
 		scores: { dialogue_score: number; authenticity_score: number; mentoring_score: number } | null;
 	} | null;

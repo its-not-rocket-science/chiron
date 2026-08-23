@@ -69,32 +69,22 @@ the real live Supabase project and real DeepSeek API, not mocks.
   fetched data is inspectable via browser devtools regardless of what
   the rendered HTML shows.
 
-**Documented (not fixed — see reasoning):**
+**Fixed (follow-up pass, `prompts.txt` Prompt A — see ADR-012):**
 
-- The `profiles` table's SELECT policy is `using (true)` for the
-  `authenticated` role — **any signed-in user can query any other
-  user's `email` directly** (e.g. `GET /rest/v1/profiles?select=email`
-  with their own session), not just through Chiron's own UI. This was a
-  deliberate MVP simplification recorded in
-  `supabase/migrations/0001_init.sql`'s comments, needed because
-  several features (org member lists, "invited by," lesson authorship)
-  read `profiles.display_name` across users via PostgREST's
-  relationship embedding, which requires a real table (not row-level
-  security scoped to `id = auth.uid()`).
-  Properly closing this needs restructuring, not a one-line policy
-  edit: either (a) a `profiles_public` view exposing only
-  `id, display_name`, with `profiles` itself locked to
-  `id = auth.uid()` and every embed in the app rewritten to reference
-  the view instead of the table, or (b) column-level `REVOKE`/`GRANT`
-  on `email` specifically. Both are safe, well-understood Postgres
-  patterns — this is scoped work, not a hard problem — but it touches
-  every `profiles(...)` embed in the codebase (`account/org`,
-  `library`, `invites/[token]`) and deserves its own pass rather than a
-  rushed edit during this review. **Recommendation: do this before
-  onboarding any org whose members would consider their email address
-  sensitive relative to other org members** (schools/districts often
-  already share staff directories, which may make this an acceptable
-  risk in practice — a product judgment call, not just a technical one).
+- The `profiles` table's SELECT policy was `using (true)` for the
+  `authenticated` role — any signed-in user could query any other
+  user's `email` directly (e.g. `GET /rest/v1/profiles?select=email`
+  with their own session), not just through Chiron's own UI. Closed via
+  `supabase/migrations/0007_profiles_public_view.sql`: `profiles`' own
+  SELECT policy is now scoped to `id = auth.uid()`, and a new
+  `profiles_public` view (exposing only `id, display_name`) is what
+  every cross-user embed (`account/org`, `library`) reads instead —
+  `email` is no longer reachable for anyone but the row's own owner,
+  through any path. Verified live: `tests/rls/orgIsolation.spec.ts` now
+  proves a direct `profiles` query for another user's row returns zero
+  rows, a user can still read their own row (email included), and
+  `profiles_public` still resolves `display_name` cross-org exactly as
+  the old embed did.
 
 ---
 
@@ -154,18 +144,26 @@ All 13 pass against the live database.
   10MB on disk, over the text cap once extracted
   (`DocxPdfParserProvider.spec.ts`).
 
-**Documented:**
+**Fixed (`prompts.txt` Prompt C):**
 
 - A client that omits the `Content-Length` header (e.g. chunked
-  transfer encoding) bypasses the early size pre-check in
+  transfer encoding) used to bypass the early size pre-check in
   `/api/lessons/upload/+server.ts`, since `request.formData()` fully
   buffers the body before `DocxPdfParserProvider` gets a chance to
-  reject it by size. Full mitigation is a platform/reverse-proxy-level
-  request body size limit, which depends on the eventual hosting
-  target (`docs/ARCHITECTURE.md` Section 11, still undecided) — most
-  platforms (nginx, Vercel, Fly) impose one by default, but this
-  should be explicitly confirmed once hosting is chosen rather than
-  assumed.
+  reject it by size. `readFormDataWithSizeCap()` now reads the request
+  body as a stream and enforces `MAX_UPLOAD_SIZE_BYTES` _while_
+  reading — the moment cumulative bytes exceed the cap, it cancels the
+  underlying reader and returns `413` without ever handing the full
+  body to a parser, regardless of whether `Content-Length` was present.
+  This is application-level enforcement, independent of whatever the
+  eventual hosting platform's own default body-size limit turns out to
+  be (`docs/ARCHITECTURE.md` Section 11, still undecided) — that
+  platform-level limit is still worth confirming once hosting is
+  chosen, as defense in depth, but Chiron no longer depends on it.
+  Verified with a test that streams a body well over the cap with no
+  `Content-Length` header and confirms both the `413` response and that
+  the stream was cancelled partway through, not drained to the end
+  first (`src/routes/api/lessons/upload/uploadSizeCap.spec.ts`).
 
 ---
 
@@ -236,6 +234,15 @@ if Chiron is ever scaled to multiple instances behind a load balancer,
 at which point a shared store (Redis, or Supabase itself) is the real
 fix. Tracked as the remaining half of ADR-006.
 
+**Re-confirmed, not just left stale (`prompts.txt` Prompt B):** checked
+whether `docs/ARCHITECTURE.md` Section 11's hosting question had been
+resolved since this was written — it hasn't, so a DB-backed limiter
+would add latency to a latency-sensitive path (LLM calls) to protect a
+deployment shape (multiple instances) that doesn't exist yet. Deferring
+again was the deliberate choice, not an oversight — see ADR-006's
+2026-08-23 re-confirmation note for the exact trigger conditions that
+would flip this decision.
+
 ---
 
 ## 7. Logging hygiene
@@ -273,16 +280,16 @@ Matches ADR-004 exactly.
 
 ## Summary
 
-| Area               | Outcome                                                                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth/authorization | 2 fixed (silent RLS-blocked writes, email over-fetch), 1 documented (profiles email exposure — needs a view, out of scope for this pass) |
-| Org data isolation | Verified — 13 live adversarial tests, 4 new this review                                                                                  |
-| File upload        | 1 fixed (decompression bomb), 1 documented (chunked-encoding body size, needs hosting decision)                                          |
-| Prompt injection   | Verified — 2 new live adversarial variants, all pass                                                                                     |
-| Secrets            | Verified — no leakage found                                                                                                              |
-| Rate limiting      | Fixed — was completely open before this review                                                                                           |
-| Logging            | Fixed (one call tightened) + verified (nothing else logs)                                                                                |
-| File retention     | Verified — matches ADR-004                                                                                                               |
+| Area               | Outcome                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Auth/authorization | 3 fixed (silent RLS-blocked writes, email over-fetch, profiles email exposure via `profiles_public` view — ADR-012) |
+| Org data isolation | Verified — 13 live adversarial tests, 4 new this review                                                             |
+| File upload        | 2 fixed (decompression bomb, chunked-encoding size bypass — ADR-013)                                                |
+| Prompt injection   | Verified — 2 new live adversarial variants, all pass                                                                |
+| Secrets            | Verified — no leakage found                                                                                         |
+| Rate limiting      | Fixed — was completely open before this review                                                                      |
+| Logging            | Fixed (one call tightened) + verified (nothing else logs)                                                           |
+| File retention     | Verified — matches ADR-004                                                                                          |
 
 Nothing found required halting deployment, but the rate limiter (item 6)
 was a real, currently-exploitable gap closed by this review, not a

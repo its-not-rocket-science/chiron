@@ -4,7 +4,11 @@
 tables, providers, routes, or tests exist for any of this yet. This is
 Prompt 12 of `scope-and prompts.txt` — scoped now, while the Phase 1
 architecture is fresh, so Phase 2 builds on Chiron's existing patterns
-instead of reinventing them.
+instead of reinventing them. Revised by `prompts.txt` Prompt D
+(2026-08-24) to close four gaps found in review: structural validation
+of tutor-returned evidence ids (Section 3), an audit trail for
+uncertainty-credit classifications (Section 4), a resumable-session
+requirement (Section 3), and student-data sensitivity/minors (Section 7) — each addressed inline below, still without building anything.
 
 Phase 1 is teacher-facing: a teacher submits a lesson, Chiron scores it
 against the three-pillar rubric and six-skill taxonomy, and suggests
@@ -222,6 +226,29 @@ handling of lesson text):
 tutor choice — it's a deterministic FSM transition (`PRESENT_NEW_EVIDENCE`
 above), driven purely by `revealOrder`.
 
+**Structural validation of `HIGHLIGHT_CONTRADICTION`'s `evidenceId`.**
+`selectAndPhraseChallenge`'s LLM call can return
+`HIGHLIGHT_CONTRADICTION(evidenceId)` naming any id — that output must
+be schema-validated the same way `RawScoringOutputSchema` validates a
+returned `skill` against the six known `CTSkillId` values (Phase 1),
+not trusted on the model's say-so. The difference from that Phase 1
+case is what the returned id gets checked _against_: `CTSkillId` is a
+fixed, static enum, but the set of valid evidence ids here is dynamic —
+specific to the case, and further scoped to only the evidence items
+already revealed to _this student in this session_ (`revealedEvidenceIds`,
+tracked by the FSM as `PRESENT_NEW_EVIDENCE` fires — see the resumable-
+session note below). An id from later in the case's `evidencePool` that
+hasn't been revealed yet must be rejected even though it's a real id in
+the case, because returning it at all — even just naming it in a
+challenge question — leaks evidence out of FSM order, defeating the
+point of staged reveal. Concretely: the response schema's `evidenceId`
+field is validated with a runtime check (a Zod `.refine()` parameterized
+by the caller-supplied `revealedEvidenceIds` for that call, since the
+allowed set isn't static) rather than a plain string field, and an
+invalid id triggers the same reject/retry-once-then-error path
+`llmScoringCore.ts` already uses for other validation failures, not a
+silent fallback to some other action.
+
 **The non-negotiable invariant**: action selection must be driven by
 gaps in reasoning quality (did the student address the counter-evidence?
 Is their stated confidence justified by what they said?), and _must not_
@@ -235,6 +262,39 @@ the classifier step that picks a challenge action must not receive
 `answerSpec` as input at all — only the case's evidence pool and the
 transcript so far. `answerSpec` is used exclusively in `SCORE_AND_RECORD`,
 after the loop is over.
+
+**Resumable sessions.** A student's tab can close mid-`AWAIT_STUDENT_RESPONSE`,
+or the network can drop between `PRESENT_CHALLENGE` and their reply — the
+FSM above cannot assume it runs start-to-finish in one request/response
+cycle the way Phase 1's single-shot `POST /api/lessons/score` does. This
+requires in-progress state to live somewhere durable, updated at each
+state transition, not just written once at the end:
+
+- A `practice_sessions` row (one per in-progress attempt) holds at
+  minimum: the current FSM state, `revealedEvidenceIds` so far (the set
+  `HIGHLIGHT_CONTRADICTION` validation above checks against), the
+  transcript of challenge/response pairs, and the initial
+  judgment/confidence once given — updated on every transition, not only
+  on completion. `PracticeAttempt` (Section 4) is the row written once
+  the loop actually reaches `SCORE_AND_RECORD`; `practice_sessions` is
+  what exists before that, and a resumed session picks up from whatever
+  state its row last recorded.
+- This is exactly the shape ADR-010 warns about: a table written
+  incrementally, multiple times, across a session, by the row's own
+  owner — the same shape that surfaced the recursion bug (`0002`), the
+  unreliable cross-table `WITH CHECK` bug (`0003`), and the
+  `RETURNING`-vs-self-reference bug (`0005`) in Phase 1's schema. Its
+  RLS policies (a student can read/write only their own in-progress
+  session; a teacher's visibility into an in-progress session, if any,
+  is a separate open question — see the data-sensitivity section below)
+  need the same live-adversarial-test treatment `tests/rls/orgIsolation.spec.ts`
+  gives Phase 1's tables before this ships, not just a policy written
+  and reasoned about from the SQL.
+- Not designed further here — no column list, no migration. The
+  requirement being established is narrower and non-negotiable: session
+  state must be durable and incrementally updated somewhere, so
+  resumability isn't discovered as a missing requirement after
+  `practice_attempts` is already built assuming a single-shot flow.
 
 ## 4. Calibration-tracking design
 
@@ -256,6 +316,16 @@ interface PracticeAttempt {
 	// objectively correct answer (Section 2). A naive right/wrong scheme
 	// can't represent "the student was appropriately uncertain."
 	outcome: 'correct' | 'incorrect' | 'appropriately_uncertain';
+	// Populated only when `outcome` was decided by the reasoning-quality
+	// classifier (i.e. the revisedJudgment === 'unknown' branch below) —
+	// the classifier's own raw justification for why it judged the
+	// reasoning grounded or not, stored verbatim. Same reasoning as
+	// Phase 1's Score storing `dialogueJustification` etc. alongside each
+	// pillar score, not just the numeric result: an LLM-made judgment
+	// call that silently determines a student's outcome needs to be
+	// reviewable after the fact, not just trusted. See "audit trail"
+	// note below.
+	unknownCreditJustification: string | null;
 	createdAt: string;
 }
 ```
@@ -276,6 +346,24 @@ interface PracticeAttempt {
   that does have a knowable answer → `'incorrect'` (declining to commit
   isn't automatically credit — the reasoning has to show why the
   evidence doesn't settle it).
+
+**Audit trail for `unknownIsCreditableIfReasoned` classifications.**
+The `'appropriately_uncertain'` branch above hinges on an LLM's
+reasoning-quality judgment, not a deterministic comparison — that's a
+real judgment call silently deciding whether a student gets credit, and
+it must be reviewable, not just trusted. Every time `outcome` is set via
+that branch (in either direction — credited _or_ denied), the
+classifier's raw justification for its call is stored in
+`unknownCreditJustification` on the same `PracticeAttempt` row, the same
+way Phase 1 stores `dialogueJustification`/`authenticityJustification`/
+`mentoringJustification` alongside each pillar score rather than just
+the numeric result (`docs/ARCHITECTURE.md` Section 3). This is what lets
+a teacher — or a later audit, if a pattern of over-crediting "I don't
+know" ever needs investigating — see _why_ a student got credit for
+uncertainty, not only that they did. `selectAndPhraseChallenge` and this
+classifier are separate calls with separate schemas (Section 3's
+invariant that challenge-selection never sees `answerSpec`); this
+justification is produced by the classifier alone, after the loop ends.
 
 For calibration reporting, `'appropriately_uncertain'` is treated as
 correct (1) and `'incorrect'` as wrong (0) — the same binary a Brier
@@ -366,7 +454,54 @@ Following `ScoringProvider`'s shape (`src/lib/providers/ScoringProvider.ts`):
   - `selectAndPhraseChallenge(transcript, revealedEvidence) → { action: PedagogicalAction, questionText: string }` — used at `PRESENT_CHALLENGE`, deliberately never given `answerSpec` (Section 3's invariant).
 - Both should have DeepSeek as the default implementation (ADR-008) with the same lazy-client-construction pattern from `AnthropicScoringProvider`/`DeepSeekScoringProvider`, and both need their own prompt-injection adversarial test suite before shipping — the existing `DeepSeekScoringProvider.integration.spec.ts` pattern (live-model tests, `describe.skipIf(!hasApiKey)`) is the template, but the attack surface is different: a student's free-text response during `PRESENT_CHALLENGE` is untrusted input to `selectAndPhraseChallenge` the same way lesson text is untrusted input to lesson scoring, and needs the equivalent "student text tries to inject a fake evidence item / fake instruction" test coverage before this goes live.
 
-## 7. Explicitly out of scope for this document
+## 7. Student data sensitivity and minors
+
+Not resolved here — flagged so it stops being silently absent, per the
+gap this section closes. `PracticeAttempt` rows (a student's reasoning,
+stated confidence, judgment history, and — per Section 4 — an LLM's
+assessment of their reasoning quality) are materially more sensitive
+than Phase 1's teacher-authored lesson-plan text, for two compounding
+reasons: they're about a specific individual's thinking and mistakes
+rather than a lesson artifact, and Chiron's actual target market
+(schools/districts) means the individual is very likely a minor.
+
+Before any real student account exists, this needs an explicit,
+deliberate answer — not an assumption inherited from how Phase 1's
+`profiles`/`lessons` visibility model happens to work — to at least:
+
+- **Who can see one student's attempt history?** Candidates: the
+  student themselves, their teacher (which teacher, if a student has
+  several?), an org admin, some combination. This is a genuinely
+  different visibility shape from anything Phase 1 built — `lessons`
+  visibility is about a teacher choosing to share their own work
+  (`private` / `org-shared` / `public-template`); a student's practice
+  history is about _other people's_ visibility into a minor's
+  performance data, which is a different kind of decision with
+  different stakes, not a relabeling of the same enum.
+- **Retention.** How long does attempt data persist, and is there a
+  deletion path (a student leaving a school, an account being closed)?
+  ADR-004's "discard unless there's a clear reason to keep it" default
+  established for uploaded lesson binaries doesn't automatically
+  transfer to a minor's longitudinal performance record — retention
+  here is a policy decision with its own reasoning, not an inherited
+  default.
+- **Regulatory requirements.** Student-data-privacy law applicable to
+  wherever Chiron is actually deployed (jurisdiction-dependent — not
+  guessed at here; FERPA/COPPA-shaped concerns are the obvious category
+  in a US K-12 context, but the actual applicable regime depends on the
+  deployment and shouldn't be assumed from that example alone) may
+  impose specific requirements on consent, access, deletion, or
+  disclosure that go beyond what ordinary RLS-based access control
+  (ADR-002) was designed to satisfy for teacher-facing Phase 1 data.
+
+None of this blocks the design work above — the case schema, tutor FSM,
+and calibration design are all reusable regardless of how these
+questions resolve. It blocks _shipping student accounts_: this section
+exists so that gate is visible and deliberate, with an owner (whoever
+scopes the Phase 2 build) and a concrete trigger (before any real
+student signs in), rather than something the team discovers mid-build.
+
+## 8. Explicitly out of scope for this document
 
 Per the prompt's own instruction, none of the following are being
 decided or built now — flagged so they don't get silently assumed later:
