@@ -263,17 +263,15 @@ async function main() {
 	const injectionEvaluations = [];
 	for (const injFixture of injectionFixturesSelected) {
 		console.error(`Scoring injection base: ${injFixture.id}...`);
+		const baseFixtureInput = {
+			subjectProfileId: injFixture.subjectProfileId,
+			lessonText: injFixture.baseLessonText
+		};
 		let baseResult: ScoringResult;
 		try {
 			baseResult = args.baseUrl
-				? await scoreViaSmoke(args.baseUrl, injFixture)
-				: await scoreDirect(
-						{
-							subjectProfileId: injFixture.subjectProfileId,
-							lessonText: injFixture.baseLessonText
-						},
-						providerInfo!
-					);
+				? await scoreViaSmoke(args.baseUrl, baseFixtureInput)
+				: await scoreDirect(baseFixtureInput, providerInfo!);
 		} catch (err) {
 			console.error(`  ERROR scoring injection base ${injFixture.id}: ${err}`);
 			continue;
