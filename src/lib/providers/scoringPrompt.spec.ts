@@ -45,4 +45,35 @@ describe('buildSystemPrompt', () => {
 	it('instructs that low-confidence skill justifications must read as uncertain, not confident (Prompt 10)', () => {
 		expect(buildSystemPrompt(scienceLab)).toMatch(/should read as genuinely uncertain/);
 	});
+
+	it('instructs that subject-profile context is flavor, never a scoring requirement (chiron_calibration_..._prompts.txt Prompt M3 item 1)', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/flavor and typical framing for suggestions only/);
+		expect(prompt).toMatch(/never a scoring requirement or a second rubric/);
+	});
+
+	it('instructs the authenticity decision rule: judge the intellectual task, not genuine material or packaging (Prompt M3 item 2)', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/central intellectual task/);
+		expect(prompt).toMatch(/teacher-curated evidence is not a reason to lower authenticity/);
+		expect(prompt).toMatch(/professional-sounding framing, role names, badges, or props/);
+	});
+
+	it('instructs the inference decision rule: reasons for a supplied conclusion do not count as inference (Prompt M3 item 3)', () => {
+		expect(buildSystemPrompt(scienceLab)).toMatch(
+			/do not mark it covered merely because the student produces reasons or supporting arguments for a conclusion that was already stated or supplied/
+		);
+	});
+
+	it('instructs the self-regulation decision rule: a formatting checklist does not count (found live during M5 baseline calibration)', () => {
+		expect(buildSystemPrompt(scienceLab)).toMatch(
+			/do not mark it covered merely because the lesson includes a "self-check" step that is actually a formatting, spelling, or procedural checklist/
+		);
+	});
+
+	it('instructs suggestions to prefer changing the intellectual task over literal realism (Prompt M3 item 4)', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/prefer changing the intellectual task itself/);
+		expect(prompt).toMatch(/not as a default first suggestion/);
+	});
 });

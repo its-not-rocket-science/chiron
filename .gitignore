@@ -21,3 +21,15 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Generated scorer-calibration reports (chiron_calibration_feedback_and_automation_prompts.txt Prompt M4)
+# — timestamped ad-hoc runs are gitignored, but the M5 before/after
+# reference pair docs/SCORER_CALIBRATION.md cites is committed, so the
+# evidence behind that decision travels with the repo, not just this
+# machine's local artifacts/ directory.
+/artifacts/calibration/*
+!/artifacts/calibration/.gitkeep
+!/artifacts/calibration/baseline.json
+!/artifacts/calibration/baseline.txt
+!/artifacts/calibration/after-m3-fix.json
+!/artifacts/calibration/after-m3-fix.txt

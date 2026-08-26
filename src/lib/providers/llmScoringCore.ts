@@ -7,7 +7,7 @@
  * full domain `ScoringResult`.
  */
 import { randomUUID } from 'node:crypto';
-import { MissingEnvError } from '$lib/server/env';
+import { MissingEnvError } from '$lib/server/envErrors';
 import { ScoringResultSchema, type ScoringResult } from '$lib/domain/schemas';
 import {
 	buildSystemPrompt,

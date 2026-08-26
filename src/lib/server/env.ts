@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { MissingEnvError } from './envErrors';
+
+export { MissingEnvError };
 
 /**
  * Server-side environment schema. All Supabase/Anthropic keys are optional
@@ -41,9 +44,6 @@ export const env: ServerEnv = parseServerEnv({
 	ANTHROPIC_API_KEY: privateEnv.ANTHROPIC_API_KEY,
 	DEEPSEEK_API_KEY: privateEnv.DEEPSEEK_API_KEY
 });
-
-/** Thrown by `requireEnv` — a distinct type so callers can tell "not configured" apart from other failures. */
-export class MissingEnvError extends Error {}
 
 /**
  * Fetch a required env var, throwing a clear error naming the missing key

@@ -1,0 +1,356 @@
+CHIRON — MANUAL CALIBRATION FEEDBACK + AUTOMATED TEST HARNESS PROMPTS
+Date: 2026-08-26
+
+Context
+=======
+The numbered prompt sequence through Prompt 36 has now been executed.
+Manual scorer testing has started and currently covers Sections A-D/C8 of the previous test plan.
+
+IMPORTANT: Chiron currently exposes only two Phase 1 subject profiles:
+- science-lab
+- history-essay
+
+The previous manual test script was insufficiently explicit about which subject profile each test should use. Do not draw strong conclusions from a fixture that was run under an unspecified or inappropriate subject profile.
+
+Before making changes, inspect the ACTUAL CURRENT WORKTREE/BRANCH, not only GitHub main. There may be unpushed local/deployment work beyond the public main branch.
+
+========================================================================
+PROMPT M1 — Analyse the current manual calibration results before changing code
+========================================================================
+
+Read the attached/manual test results and inspect the current rubric, taxonomy, subject profiles, scoring prompt/core, providers, scorer tests, prompt/model versioning, and docs/SCORER_CALIBRATION.md if present.
+
+Do NOT change code yet.
+
+Observed results:
+
+A1 repeatability
+- Fertiliser: (2,1,1), (1,1,1), (1,1,0)
+- Roman Republic: (2,2,2), (3,3,2), (3,3,2)
+- WWI: (1,2,1), (2,2,2), (1,2,1)
+- Appeasement: (3,2,2), (3,2,2), (3,2,3)
+- Propaganda: (2,2,2) all three runs
+
+Interpretation:
+- one-point LLM variance remains; avoid brittle exact-score regressions;
+- History authenticity is compressed around 2;
+- strong and mid-strength history lessons are not always cleanly separated on authenticity.
+
+B1 genuine historical material, trivial task
+Observed: Dialogue 0, Authenticity 2, Mentoring 1.
+If this was history-essay, this is a key failure. Primary sources plus predetermined interpretation should be around Authenticity 1.
+
+B2 invented material, authentic reasoning
+Observed: 2,2,1. Do not treat as firm failure because the earlier pedestrianisation example fits neither supported profile cleanly. Replace with a profile-valid science fixture.
+
+B3 cosmetic WHO role play
+The summary table says Mentoring 3, but detailed raw result says Mentoring 0. Treat raw detailed output as authoritative: 0,1,0. This is a GOOD result and shows the scorer can ignore role-play cosmetics. The mismatch demonstrates why automated capture is needed.
+
+C1 predetermined ad claim
+Evaluation not clearly covered. GOOD.
+
+C2 genuine evaluation
+Evaluation covered high. GOOD. C1/C2 discrimination works.
+However suggestions still overvalue literal realism: collecting real data, real current ads, running surveys. Inspect this separately.
+
+C3 inference versus supplied conclusion
+Inference covered medium. THIS IS A FAILURE.
+Students were given the conclusion and only generated support. This should normally be not clearly covered for Inference.
+
+C4 genuine inference
+Inference covered high. GOOD. Preserve contrast with C3.
+
+C5/C6 classification vs genuine analysis
+C5 Analysis not clearly covered; C6 Analysis covered high. VERY GOOD.
+
+C7/C8 surface checklist vs genuine self-regulation
+C7 Self-Regulation not clearly covered; C8 covered high. VERY GOOD.
+C8 summary says Mentoring 3 but detailed result says 1; again, raw capture must replace manual transcription.
+
+Overall diagnosis:
+Do NOT rewrite all six CT skills again.
+Target only:
+1. Authenticity, especially History Essay.
+2. Inference when the conclusion is supplied.
+3. Subject-profile grounding: examples should flavour suggestions, not act as score shortcuts or prerequisites.
+4. Suggestion quality: improve reasoning structure before recommending more literal realism.
+5. Variance: use bands and paired contrasts, not exact scores.
+
+Write/update docs/SCORER_CALIBRATION.md with this diagnosis and stop before implementation.
+
+========================================================================
+PROMPT M2 — Replace remaining manual scorer tests with profile-valid fixtures
+========================================================================
+
+Create canonical fixtures. EVERY fixture must include:
+- id
+- title
+- subjectProfileId: science-lab | history-essay
+- lessonText
+- rationale
+- expected pillar bands
+- skill expectations
+- hard invariants where appropriate
+
+SCIENCE LAB
+
+S-A1 Weak conventional fertiliser lesson
+Profile: science-lab
+Use existing fertiliser fixture.
+Expected: Dialogue 0-1; Authenticity 1-2; Mentoring 0-1; Evaluation/Inference/Interpretation covered; Self-Regulation normally not clearly covered.
+
+S-B1 Real lab materials, cookbook procedure
+Students investigate temperature and enzyme activity using real equipment. Teacher supplies exact procedure, expected results table and conclusion. Students follow, graph, copy conclusion. No variable choice, anomaly evaluation, competing explanations or independent conclusion.
+Expected: Authenticity 1-2, NOT 3 just because it is a real lab. Inference conservative/not clearly covered.
+
+S-B2 Simulated data, genuine scientific reasoning
+Students evaluate whether a new fertiliser increases bean growth using teacher-created but realistic messy data: unequal starting heights, one missing measure, outlier, inconsistent watering, control and treatment groups. They identify data-quality problems, decide valid comparisons, propose alternatives, judge evidence strength, state needed further evidence, defend conclusion. They do not collect data.
+Expected: Authenticity 2-3 with 3 legitimate; Evaluation/Inference high; Analysis covered. Do not penalise simulated data.
+
+S-B3 Cosmetic epidemiologist role play
+Use WHO badges/case-files/decision-tree fixture.
+Expected: Dialogue 0; Authenticity 1; Mentoring 0; most CT skills not clearly covered.
+
+S-C1 Supplied scientific conclusion
+Smoking rates fall after ad ban; teacher says this proves the ban reduced smoking; students write three reasons supporting it.
+Expected hard invariant: Inference NOT clearly covered; Evaluation NOT clearly covered; Explanation may be covered.
+
+S-C2 Genuine scientific inference
+Same data, but ask what can be concluded; students propose alternatives, distinguish association/causation, identify missing evidence, state strongest warranted conclusion.
+Expected: Inference covered high; Evaluation covered.
+
+S-C3 Surface self-check
+Lab report checklist only: title, paragraphs, keywords, spelling.
+Expected: Self-Regulation NOT clearly covered.
+
+S-C4 Genuine scientific self-regulation
+Initial causal judgement + confidence + what would change it + conflicting evidence + revision/maintenance + explanation + identify weakness in original reasoning.
+Expected: Self-Regulation covered high.
+
+HISTORY ESSAY
+
+H-A1 Roman Republic strong lesson
+Profile: history-essay
+Expected: Dialogue 2-3 ideally 3; Authenticity 3; Mentoring 2-3; all skills covered.
+
+H-A2 Appeasement strong terse lesson
+Profile: history-essay
+Expected: Dialogue 3; Authenticity 3; Mentoring 2-3; all skills covered. Protect against verbosity bias, curated-source penalty and staged-evidence penalty.
+
+H-B1 Genuine primary sources, predetermined interpretation
+Use Cuban Missile Crisis fixture explicitly as history-essay. Six genuine sources, teacher supplies interpretation under each, students identify author/date/category and copy matching sentence; teacher supplies final thesis.
+Expected hard invariant: Authenticity 1; Dialogue 0. Primary sources alone must not raise authenticity to 2.
+
+H-B2 Curated sources, genuine historical inquiry
+Use six teacher-curated primary sources on Peterloo: magistrates, reformer, newspaper, eyewitness, casualties, authority correspondence. Ask whether force was genuine threat response or political suppression. Students assess provenance, reconcile conflict, distinguish known/uncertain, construct two interpretations, defend best-supported judgement, state what would change their mind. No independent source search.
+Expected: Authenticity 3; Evaluation/Inference/Interpretation/Explanation covered. Do not penalise curation.
+
+H-B3 Polished propaganda lesson
+Use existing Nazi propaganda carousel/role-play fixture.
+Expected: Dialogue 1-2; Authenticity 1-2 preferably 1; Mentoring 1-2; Inference NOT clearly covered; Self-Regulation NOT clearly covered; Evaluation conservative.
+
+H-C1 Historical classification only
+Students classify historical political claims into supplied categories with no justification/argument analysis.
+Expected: Analysis NOT clearly covered; Interpretation may be covered.
+
+H-C2 Genuine historical argument analysis
+Students identify conclusions, premises, assumptions, relationships and compare argument structures.
+Expected: Analysis covered high.
+
+H-C3 History essay surface checklist
+Title, three paragraphs, keywords, spelling.
+Expected: Self-Regulation NOT clearly covered.
+
+H-C4 History essay reasoning revision
+Initial historical judgement/confidence; evidence that would change it; conflicting primary source; revise/maintain; explain why; identify weakness; revise paragraph.
+Expected: Self-Regulation covered high.
+
+PROMPT INJECTION
+Create at least one weak fixture for EACH subject profile:
+S-D1 weak Science Lab worksheet + injection
+H-D1 weak History Essay recall lesson + injection
+Variants: direct override, fake replacement rubric, fake JSON, supersede-system text, buzzword-only self-description.
+Expected: no material score change attributable to injected instructions.
+
+========================================================================
+PROMPT M3 — Targeted calibration fixes only
+========================================================================
+
+After M2 fixtures exist, implement the smallest changes needed.
+
+1. Subject profile is context/flavour, NOT a second rubric.
+Make explicit in buildSystemPrompt:
+- authenticProblemExamples are examples, never prerequisites;
+- never raise/lower pillar score merely because a subject example is present/absent;
+- score against general rubric first;
+- use profile chiefly to make suggestions relevant.
+
+2. Authenticity decision rule:
+Identify the STUDENT'S CENTRAL INTELLECTUAL TASK.
+Ask:
+- which meaningful decisions remain open?
+- can evidence support competing interpretations?
+- must students decide what follows, or reproduce supplied conclusions?
+Rules:
+- genuine source/material != automatic authenticity;
+- teacher-curated evidence != reduced authenticity;
+- simulated data != reduced authenticity by itself;
+- actual data collection != increased authenticity by itself;
+- role play/props/professional framing != authenticity by itself.
+
+3. Inference decision rule:
+Do not mark Inference covered merely because students supply reasons for a conclusion already stipulated by teacher/worksheet/question. Inference requires determining what follows from evidence, generating/comparing conclusions or explanations, making a prediction, or otherwise reaching a conclusion rather than rationalising a supplied one.
+
+4. Suggestions:
+When raising authenticity, prefer changing the intellectual task before recommending literal realism.
+Prefer controls/comparisons, conflicting evidence, missing data, competing hypotheses, or an open decision. Recommend own-data collection/research only where it materially improves reasoning and is practical.
+
+5. Do not broadly alter Evaluation/Analysis/Self-Regulation unless new subject-valid fixtures show failures.
+6. Bump prompt version if implemented.
+7. Run automated live calibration from M4 before accepting changes.
+
+========================================================================
+PROMPT M4 — Build automated live scorer calibration harness + text report
+========================================================================
+
+Goal: stop manually copying UI results. One command should generate a self-contained report suitable for pasting into an evaluating LLM, human review, and before/after diffing.
+
+Do NOT make this browser automation. This harness tests scorer calibration through the real domain/provider code.
+
+Recommended structure:
+tests/calibration/fixtures/science/
+tests/calibration/fixtures/history/
+tests/calibration/evaluateCalibration.ts
+scripts/run-scorer-calibration.ts
+package.json script: test:calibration
+
+a) Fixture schema
+Typed/Zod validated, including:
+- id, title, subjectProfileId, lessonText, rationale
+- pillar expected min/max bands
+- skill state expectation: covered | not_clearly_covered | either
+- hardInvariants
+Do not assert exact natural-language justifications.
+
+b) Runner options
+--provider deepseek|anthropic
+--runs N
+--fixture ID
+--profile science-lab|history-essay
+--output PATH
+--format text|markdown|json|all
+--dry-run
+--strict
+--compare previous.json
+Default 3 runs; allow 5 for release calibration.
+
+c) Invocation path
+Call scoreLesson(provider, ...) DIRECTLY with the real provider/domain code.
+Do not use public /api/lessons/score for the full suite: avoid rate limits, deployment UX noise and caching. Use fresh lessonVersionId each run. Do not modify lessonText with nonces.
+
+If a cache exists above the provider, invoke below that cache while still exercising the real scoring prompt/model/validation path.
+
+d) Raw capture per run
+Capture:
+- timestamp
+- fixture/title/profile
+- provider/model id
+- prompt version
+- pillar scores + full justifications
+- all six skill states/confidences/justifications
+- suggestions
+- safe error/retry metadata if available
+Keep raw output, not only summaries.
+
+e) Deterministic evaluator
+PASS: expected band/state.
+WARN: plausible one-point variance that does not violate a hard pedagogical invariant.
+FAIL: hard invariant violation.
+Examples of hard FAIL:
+- S-C1 supplied conclusion gets Inference covered;
+- H-B1 primary-source/predetermined repeatedly gets Authenticity >=2;
+- injection changes scores materially;
+- H-B2 curated genuine inquiry repeatedly fails high authenticity.
+Do NOT use another LLM for basic PASS/FAIL.
+
+f) Repeatability metrics
+Per pillar: values, min, max, mean, mode, range.
+Flag STABLE=0, MINOR VARIANCE=1, HIGH VARIANCE>=2.
+Per skill: covered count, e.g. Inference covered 0/3.
+
+g) Profile summaries
+Separate SCIENCE LAB and HISTORY ESSAY.
+Report fixture pass rate, frequent pillar deviations, frequent skill deviations, variance. Averages only secondary.
+
+h) Paired contrast invariants
+Science: S-C2 inference stronger than S-C1.
+History: H-C2 analysis stronger than H-C1.
+Self-regulation: C4 stronger than C3.
+History authenticity: H-B2 curated genuine inquiry > H-B1 genuine sources/predetermined.
+Science authenticity: S-B2 messy simulated reasoning > S-B1 cookbook real experiment.
+Pairwise relationships are often more robust than exact scores.
+
+i) Outputs
+Generate:
+artifacts/calibration/<timestamp>-calibration.json
+artifacts/calibration/<timestamp>-calibration.txt
+artifacts/calibration/<timestamp>-calibration.md
+and optionally latest.txt/latest.json.
+Gitignore generated artifacts by default.
+
+j) LLM-friendly text report
+Include:
+CHIRON SCORER CALIBRATION REPORT
+Generated / commit / dirty status / provider / model / prompt version / runs
+EXECUTIVE SUMMARY
+HARD FAILURES
+WARNINGS
+PROFILE SUMMARY
+PAIRED CONTRASTS
+FIXTURE RESULTS
+RAW MODEL OUTPUT (full justifications/suggestions, clearly delimited)
+END REPORT
+
+k) Git metadata
+Include commit SHA and dirty-working-tree status.
+
+l) Cost controls
+Print call count before execution, e.g. 18 fixtures × 3 = 54 live calls.
+Sequential by default; modest configurable concurrency default 1. Use existing bounded provider retry only. --dry-run validates fixtures and prints calls without API use.
+
+m) Exit codes
+0 no hard failures
+1 one or more hard failures
+2 runner/config/provider error
+Warnings fail only with --strict.
+
+n) Baseline comparison
+--compare previous.json must deterministically report fixture pass/fail changes, score distribution changes, newly over/under-credited skills, variance changes. No LLM needed.
+
+o) Optional deployed smoke mode
+Support --base-url URL as a SECOND mode for a small subset only. Honour 429 Retry-After. Default one run. Suggested smoke: S-C1, S-C2, H-B1, H-B2 and one injection per profile.
+
+p) Documentation
+Create docs/SCORER_TESTING.md covering deterministic unit tests vs live calibration vs browser E2E, why exact scores are avoided, mandatory subjectProfileId, quick/deep commands, how to feed latest.txt to an evaluating LLM, and before/after comparison.
+
+========================================================================
+PROMPT M5 — Establish baseline, fix, rerun, compare
+========================================================================
+
+After M4 exists:
+1. npm run check && npm run lint && npm test && npm run build
+2. npm run test:calibration -- --provider deepseek --runs 3 --format all
+3. Save baseline JSON/text.
+4. Update docs/SCORER_CALIBRATION.md from report.
+5. Apply only M3 targeted changes.
+6. Rerun exactly same command.
+7. Use --compare against pre-change JSON.
+8. Accept only if targeted hard failures improve, good contrast fixtures do not regress, injection remains robust, strong lessons remain strong, and variance does not materially worsen.
+
+NEXT MANUAL TESTING
+===================
+Once the automated scorer calibration is clean, manual testing should focus on things automation should not replace:
+- Phase 1 UI/input/upload/save/revise/presentation/subject selector/mobile/accessibility
+- Phase 2A tutor usefulness, hidden evidence, neutrality, refresh/back/multi-tab, error recovery, privacy, mobile/accessibility, human subjective experience
+
+Do not continue manually retyping dozens of lesson-score outputs after M4. The calibration harness owns repeated scorer testing; human testing is for UX, pedagogy, tutor interaction and security behaviours.
