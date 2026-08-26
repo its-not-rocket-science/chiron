@@ -5,6 +5,9 @@ import type { DataStore } from './DataStore';
 /**
  * Supabase-backed implementation of {@link DataStore}. Server-side only —
  * uses the service role key, which must never reach the client.
+ *
+ * Currently unused by any route (see {@link DataStore}'s doc comment /
+ * ADR-014) — routes use `locals.supabase` directly instead.
  */
 export class SupabaseDataStore implements DataStore {
 	private client: SupabaseClient | null;

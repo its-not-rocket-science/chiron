@@ -6,10 +6,13 @@ problems, mentoring — Abrami et al., 2015) and a six-skill critical-
 thinking taxonomy, then gives subject-flavored, lesson-specific revision
 suggestions.
 
-See `docs/ARCHITECTURE.md` for the full design and `docs/DECISIONS.md`
-for architecture decision records. This repo is being built incrementally
-per the prompt sequence in `scope-and prompts.txt` — Phase 1 (MVP) is the
-teacher-facing lesson analyzer; see that file's Section 5 for build order.
+See `docs/ARCHITECTURE.md` for the full design, `docs/DECISIONS.md` for
+architecture decision records, and **`docs/STATUS.md` for a concise,
+current-state summary** (implemented features, known debt, Phase 2
+status) — that file is the one kept up to date at each milestone;
+treat the prose below as a snapshot, not the live source of truth. This
+repo was built incrementally per prompt sequences in `scope-and
+prompts.txt` (Phase 1) and `prompts.txt` (Phase 1 hardening + Phase 2A).
 
 ## Stack
 
@@ -43,12 +46,12 @@ error instead of crashing.
 Accounts need a real Supabase project. Create one free at
 [supabase.com](https://supabase.com), put its URL/anon key/service role
 key (Project Settings > API) into `.env`, then run every file in
-`supabase/migrations/` **in order** (`0001` through `0005`) via the SQL
-Editor — see that file's comments for why there are five instead of one;
-each one fixes a real, adversarially-discovered issue in the one before
-it, and the sequence matters. Without Supabase configured, the app still
-boots and scores lessons — signup/login/org/library routes will show a
-clear "not configured" state instead of crashing.
+`supabase/migrations/` **in order** (`0001` through the highest-numbered
+file present) via the SQL Editor — see each file's own comments; several
+of them fix a real, adversarially-discovered issue in the one before it
+(ADR-010), and the sequence matters. Without Supabase configured, the
+app still boots and scores lessons — signup/login/org/library routes
+will show a clear "not configured" state instead of crashing.
 
 ## Scripts
 
@@ -74,62 +77,26 @@ src/routes/           SvelteKit pages and API routes
 src/hooks.server.ts   attaches a request-scoped, cookie-authenticated Supabase client to every request
 tests/rls/            adversarial RLS tests — run against the real live Supabase project, not mocked
 supabase/migrations/  schema + row-level security policies, applied in order via the Supabase SQL Editor
-docs/                 architecture, decisions, and (later) security/phase-2 docs
+docs/                 architecture, decisions, security, status, and Phase 2 planning docs
 ```
 
 Domain logic never imports Svelte or a provider implementation directly;
-providers are swapped behind interfaces (`ScoringProvider`, `DataStore`,
-`FileParserProvider`). See `docs/ARCHITECTURE.md` Section 1.
+`scoreLesson()` depends only on the `ScoringProvider` interface (DeepSeek
+active, Anthropic swappable — ADR-008). Most other Supabase access
+(lesson persistence, org/library operations) is called directly from
+route code against RLS-scoped queries and RPCs, not through a
+`DataStore` abstraction — see `docs/ARCHITECTURE.md` Section 6 and
+ADR-014 for why. See `docs/ARCHITECTURE.md` Section 1 for the full
+layering.
 
 ## Status
 
-Prompts 1-11 complete: taxonomy/rubric/subject-profile grounding data,
-docx/pdf upload parsing, the core domain model, a real scoring engine
-(DeepSeek, provider-swappable), the teacher-facing UI (input → score →
-revise-and-resubmit with a before/after view), accounts/multi-tenancy —
-email/password signup and login, one org per user with an admin/teacher
-invite flow (shareable link, not an emailed one — see ADR-009), and a
-`lessons` table with `private` / `org-shared` / `public-template`
-visibility enforced by Postgres row-level security — and the shared
-library (`/library`): search/filter by subject, grade level, and minimum
-pillar scores across org-shared + public-template lessons, with a
-save-a-copy action that always lands as a new private lesson (ADR-011).
-Org isolation is proven by an adversarial test suite that runs against
-the live database (`tests/rls/orgIsolation.spec.ts`), not just reasoned
-about from the policy SQL — see ADR-010 for what that testing actually
-caught. Prompt 10's honesty-guardrail pass is done too: the scoring
-prompt now explicitly requires every suggestion to name something
-specific from the submitted lesson (not generic advice that would fit
-any lesson) and requires low-confidence skill justifications to actually
-read as uncertain, not confident text sitting next to a low-confidence
-badge — verified against real model output, not just prompt wording. The
-honesty note is on every page that shows a score, including `/library`.
-
-Prompt 11's pre-deployment security review is done — see
-`docs/SECURITY.md` for the full writeup. Highlights: the adversarial RLS
-suite grew to 13 live tests (added direct-UPDATE, invite-listing,
-guessed-token, and copy-lesson cases), the prompt-injection suite gained
-two new live-tested attack variants (a fake embedded rubric, a
-format-break/system-prompt-extraction attempt) alongside the original,
-`/api/lessons/score` and `/api/lessons/upload` are now rate-limited per
-IP (previously wide open to cost abuse — the one finding serious enough
-to matter), and two silent-failure bugs in the org-admin actions were
-fixed (an RLS-blocked write was being reported as success). One gap is
-documented rather than fixed: any signed-in user can currently query any
-other user's email directly via the `profiles` table (not just through
-Chiron's UI) — closing it needs a view/column-security restructuring
-that touches several `profiles(...)` embeds across the codebase, judged
-out of scope for this pass.
-
-Prompt 12 (Phase 2 planning) is done too — see `docs/PHASE2.md` for the
-student practice-mode design: a case-content schema, a constrained
-Socratic tutor state machine (fixed pedagogical action vocabulary, no
-invented evidence, challenge selection decoupled from whether the
-student's answer agrees with the "correct" one), confidence-calibration
-tracking (Brier score + reliability curve, with "not enough evidence to
-know" as a creditable outcome, not a wrong one), and how it plugs into
-Phase 1's existing subject profiles and lesson scores. Planning only —
-nothing in it is implemented, per the prompt's own instruction.
-
-That's Phase 1 complete (Prompts 1-11, all shipped) plus the Phase 2
-scoping prompt (12). No further prompts remain in the current sequence.
+Phase 1 (MVP) is complete and hardened — see **`docs/STATUS.md`** for
+the current, concise summary of what's implemented, known technical and
+security debt, and Phase 2 status, rather than a per-prompt changelog
+here. Highlights: teacher-facing lesson analyzer (score, revise,
+before/after), accounts/orgs/shared library with Postgres RLS as the
+isolation boundary (adversarially tested live, `tests/rls/orgIsolation.spec.ts`),
+a pre-deployment security review with every finding now Fixed or
+Verified (`docs/SECURITY.md`), and a Phase 2 (student practice mode)
+planning document (`docs/PHASE2.md`) — design only, nothing implemented.

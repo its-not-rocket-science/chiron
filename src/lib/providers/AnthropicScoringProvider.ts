@@ -3,6 +3,7 @@ import { requireEnv } from '$lib/server/env';
 import type { ScoringResult } from '$lib/domain/schemas';
 import { scoreWithLLM, type CreateMessageFn } from './llmScoringCore';
 import type { ScoringProvider, ScoringProviderInput } from './ScoringProvider';
+import { PROVIDER_MAX_RETRIES, PROVIDER_TIMEOUT_MS } from './providerCallDefaults';
 
 export const DEFAULT_ANTHROPIC_SCORING_MODEL = 'claude-sonnet-5';
 
@@ -16,7 +17,11 @@ function defaultCreateMessage(apiKey?: string): CreateMessageFn {
 	let client: Anthropic | undefined;
 
 	return async ({ model, system, userMessage }) => {
-		client ??= new Anthropic({ apiKey: apiKey ?? requireEnv('ANTHROPIC_API_KEY') });
+		client ??= new Anthropic({
+			apiKey: apiKey ?? requireEnv('ANTHROPIC_API_KEY'),
+			timeout: PROVIDER_TIMEOUT_MS,
+			maxRetries: PROVIDER_MAX_RETRIES
+		});
 		const response = await client.messages.create({
 			model,
 			max_tokens: 4096,

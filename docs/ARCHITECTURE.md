@@ -1,6 +1,18 @@
 # Chiron — Architecture
 
-Status: Phase 1 (MVP) design. No implementation yet.
+Status: Phase 1 (MVP) is implemented and shipped (Prompts 1-11, plus
+the `prompts.txt` Prompts A-D hardening pass). This document describes
+the architecture as built, not just as originally planned — where a
+section still reads prescriptively ("will be tested," "left open"),
+that reflects a genuinely still-open question, not stale planning
+language; see `docs/STATUS.md` for a current, concise source of truth
+(implemented features, known debt, Phase 2 status) rather than
+re-deriving it from this document's history. Phase 2A (student practice
+mode) is substantially implemented (`prompts.txt` Prompts 20-34) — see
+`docs/PHASE2A_IMPLEMENTATION.md` for the concrete built shape and
+`docs/STATUS.md` for current build status; `docs/PHASE2.md` remains the
+_why_-focused design document this section originally pointed to, not
+an "unbuilt" marker.
 
 Source grounding: Abrami et al. (2015), https://doi.org/10.3102/0034654314551063
 (paraphrased taxonomy/rubric to live in `lib/taxonomy.ts` and `lib/rubric.ts`,
@@ -15,11 +27,14 @@ Chiron has three layers that must stay separable:
 1. **Domain layer** (`src/lib/domain/`) — pure TypeScript. Taxonomy, rubric,
    subject profiles, scoring types, visibility rules, validation schemas.
    No framework imports, no Anthropic SDK import here.
-2. **Provider layer** (`src/lib/providers/`) — thin adapters that the domain
-   layer talks to through interfaces: `ScoringProvider` (LLM scoring),
-   `FileParserProvider` (docx/pdf → text), `DataStore` (persistence).
-   Concrete implementations (`AnthropicScoringProvider`,
-   `SupabaseDataStore`) live here and are swappable.
+2. **Provider layer** (`src/lib/providers/`) — thin adapters the domain
+   layer talks to through interfaces: `ScoringProvider` (LLM scoring,
+   `DeepSeekScoringProvider` active / `AnthropicScoringProvider`
+   alternate — ADR-008) and `FileParserProvider` (docx/pdf → text,
+   `DocxPdfParserProvider`). A `DataStore` interface/`SupabaseDataStore`
+   implementation also live here, but — unlike the two above — routes
+   don't actually go through it for lesson/org/library persistence; see
+   Section 6 and ADR-014 for what routes use instead and why.
 3. **App layer** (`src/routes/`, `src/lib/components/`) — SvelteKit routes,
    server endpoints, UI components. Renders domain data and dispatches
    actions; never computes scores, never decides visibility rules, never
@@ -32,7 +47,7 @@ teacher input (paste or upload)
   → normalize to LessonText (app layer, calls FileParserProvider if upload)
   → scoreLesson(text, subjectProfile) (domain layer, calls ScoringProvider)
   → validated Score + SkillCoverage + Suggestion[] (domain layer)
-  → persist LessonVersion (DataStore)
+  → persist LessonVersion (app layer, save_lesson RPC via locals.supabase — ADR-014)
   → render results (app layer)
   → revise → new LessonVersion → re-score → before/after diff (app layer)
 ```
@@ -84,13 +99,13 @@ SvelteKit specifically (per constraint: Svelte if any framework is used):
 | Framework         | SvelteKit (TypeScript, strict mode)                                                                                                                                                      | see above                                                                                                                                                      |
 | Styling           | Tailwind CSS                                                                                                                                                                             | fast to build accessible, responsive UI without a component library dependency                                                                                 |
 | Persistence       | Postgres via Supabase                                                                                                                                                                    | managed Postgres + built-in row-level security (RLS), which directly implements the "org boundaries enforced server-side" requirement (Section 3, principle 8) |
-| Auth              | Supabase Auth                                                                                                                                                                            | email/password + magic link; issues the JWT that RLS policies key off of                                                                                       |
+| Auth              | Supabase Auth                                                                                                                                                                            | email/password only (no magic link was built); issues the JWT that RLS policies key off of                                                                     |
 | LLM               | Behind a `ScoringProvider` interface; active implementation is DeepSeek (`DeepSeekScoringProvider`), Anthropic (`AnthropicScoringProvider`) also implemented and swappable — see ADR-008 | provider-independence is a hard requirement (Section 3, principle 4)                                                                                           |
 | Schema validation | Zod                                                                                                                                                                                      | validates LLM structured output and file-derived text before it's treated as trusted domain data                                                               |
-| File parsing      | `mammoth` (docx → text), `pdf-parse` or `unpdf` (pdf → text)                                                                                                                             | server-side only, evaluated in Prompt 4                                                                                                                        |
-| Testing           | Vitest (unit + component via `@testing-library/svelte`), Playwright (integration, optional if time allows)                                                                               |                                                                                                                                                                |
+| File parsing      | `mammoth` (docx → text), `unpdf` (pdf → text)                                                                                                                                            | server-side only, decided in Prompt 4 (`pdf-parse` was evaluated and not used)                                                                                 |
+| Testing           | Vitest (unit + server/integration), `vitest-browser-svelte` for component tests (real Playwright/chromium, not jsdom)                                                                    | needed for genuine DOM/interaction behavior, not a jsdom approximation                                                                                         |
 | Lint/format       | ESLint + Prettier                                                                                                                                                                        |                                                                                                                                                                |
-| Deployment target | Node adapter (`@sveltejs/adapter-node`) or Vercel adapter — decide at bootstrap time based on hosting choice                                                                             | left open, see Section 11                                                                                                                                      |
+| Deployment target | Node adapter (`@sveltejs/adapter-node`) — decided, ADR-005                                                                                                                               | the adapter is fixed; the actual _hosting platform_ (and whether it runs multiple instances) is still open, see Section 11                                     |
 
 No ORM decided yet — plain `@supabase/supabase-js` client with typed
 queries is likely sufficient for this schema's complexity; revisit if
@@ -105,7 +120,11 @@ query complexity grows (recorded as an open question, Section 11).
 ```
 User
   id, email, display_name, created_at
-  (auth handled by Supabase Auth; this is the profile row)
+  (auth handled by Supabase Auth; this is the profile row —
+   `public.profiles`. As built, `email` is readable only by the row's
+   own owner; every other user only ever sees `id, display_name`, via
+   a `profiles_public` view — see ADR-012. This entity sketch predates
+   that split; treat ADR-012 as the current behavior.)
 
 Org
   id, name, created_at
@@ -147,7 +166,9 @@ Score
   dialogue_score (0-3), dialogue_justification
   authenticity_score (0-3), authenticity_justification
   mentoring_score (0-3), mentoring_justification
-  model_id (which Claude model produced this), created_at
+  model_id (which LLM model produced this — DeepSeek's `deepseek-chat`
+  by default as built, ADR-008; Anthropic Claude models also supported
+  behind the same interface), created_at
 
 SkillCoverageEntry
   id, score_id → Score
@@ -165,7 +186,8 @@ Suggestion
   -- never generated independently of a specific LessonVersion
 
 LibraryPin (optional; could also just be Lesson.featured)
-  id, lesson_id → Lesson, pinned_by → User, org_id → Org, created_at
+  -- resolved as built: no separate table. `Lesson.featured` (above) is
+  -- the whole mechanism — an org-admin-toggleable boolean, nothing more.
 ```
 
 ### Visibility & org boundary rules (domain-level, enforced again at DB level)
@@ -187,8 +209,14 @@ LibraryPin (optional; could also just be Lesson.featured)
 - `lessons` INSERT/UPDATE/DELETE: `owner_id = auth.uid()`, plus org-admin
   override for `featured` toggling on org-shared lessons in their own org.
 - `lesson_versions`, `scores`, `skill_coverage_entries`, `suggestions`
-  inherit visibility through their parent `lesson_id` (policy checks via a
-  join or a security-definer function, decided at implementation time).
+  inherit visibility through their parent `lesson_id` — resolved as
+  built via `SECURITY DEFINER` helper functions (`owns_lesson_version()`,
+  `owns_score()`, `can_view_lesson_version()`, etc.), never a raw
+  cross-table subquery inlined in the policy itself. This wasn't just a
+  style choice — ADR-010 documents three real, adversarially-discovered
+  RLS bugs (recursion, unreliable cross-table `WITH CHECK`, and a
+  `RETURNING`-vs-self-referencing-policy failure) that this pattern
+  specifically fixes.
 - This is the mechanism satisfying Section 3 principle 8 — client code
   cannot bypass this, since Supabase enforces RLS at the query layer
   regardless of client trust.
@@ -198,14 +226,28 @@ LibraryPin (optional; could also just be Lesson.featured)
 ## 4. File upload / parsing pipeline
 
 ```
-POST /api/lessons/upload (server route)
-  1. Validate content-type and size (limit TBD in Prompt 4, e.g. 10MB)
-  2. Validate extension/mime matches one of: .docx, .pdf
+POST /api/lessons/upload (server route) — as built:
+  0. Rate-limited per client IP (Prompt 11, ADR-006) — 30 req/10 min,
+     since this endpoint is reachable without signing in.
+  1. Size cap resolved at 10MB (MAX_UPLOAD_SIZE_BYTES). Enforced twice:
+     a Content-Length fast-path check, and — because a client can omit
+     that header (chunked transfer encoding) and skip the fast path
+     entirely — a streamed read that enforces the cap *while reading*,
+     aborting the moment it's exceeded rather than buffering the whole
+     body first (ADR-013).
+  2. Validate extension/mime matches one of: .docx, .pdf (extension is
+     authoritative when the browser sends a generic mime type; an
+     extension/mime mismatch is rejected rather than guessed at).
   3. Route to parser:
        .docx → mammoth.extractRawText()
-       .pdf  → pdf text extractor
+       .pdf  → unpdf's extractText()
   4. Post-extraction checks:
+       - extracted text over MAX_EXTRACTED_TEXT_LENGTH (500k chars) →
+         rejected before normalization runs — a compressed .docx can
+         decompress to far more text than the upload-size cap implies
+         ("decompression bomb"), independent of that cap
        - empty or whitespace-only result → "no extractable text" error
+         (a distinct "no text layer" error for a scanned PDF specifically)
        - extraction throws (corrupt file) → "couldn't read this file" error
        - success → normalize (trim, collapse excess whitespace) into the
          same LessonText string shape as the paste/type path
@@ -238,6 +280,19 @@ approach).
 
 ## 5. Scoring architecture
 
+**Scoped to Phase 1 — not the Phase 2 assessment model.** Everything in
+this section (the LLM directly producing schema-validated pillar
+scores and skill-coverage flags) is a deliberate design for _coaching a
+teacher_, where the teacher is the professional in the loop and the
+score is advisory input to their own judgment. Phase 2 assesses a
+student, not a teacher, and per `docs/PHASE2.md` Section 1a
+(`prompts.txt` Prompt 15) that's a stricter bar: an LLM may classify
+named reasoning signals from a student's free text, but never directly
+assign a score, grade, or "correctness" — deterministic app code and
+authored case metadata do that. Don't generalize this section's
+pattern to Phase 2 assessment; see `docs/PHASE2.md` Section 1a for the
+Phase 2 rule instead.
+
 ### Provider interface
 
 ```ts
@@ -249,10 +304,13 @@ interface ScoringProvider {
 }
 ```
 
-`AnthropicScoringProvider` is the only implementation in Phase 1, but
-domain code (`scoreLesson()` in `src/lib/domain/scoring.ts`) depends only
-on the interface, so a different model provider could be substituted
-without touching domain logic, routes, or components.
+As built, two implementations exist behind this interface —
+`DeepSeekScoringProvider` (active, ADR-008) and `AnthropicScoringProvider`
+(alternate, still fully working) — and domain code
+(`scoreLesson()` in `src/lib/domain/scoreLesson.ts`) depends only on the
+interface, so the route constructing the provider is the only place
+that changed when the active vendor switched; domain logic, routes'
+error handling, and components didn't need to change at all.
 
 ### What's deterministic vs. LLM-generated
 
@@ -264,8 +322,9 @@ Deterministic (domain code, no LLM involvement):
   records)
 - Which subject profile's grounding text gets embedded in the prompt
 
-LLM-generated (via `AnthropicScoringProvider`, always schema-validated
-before being trusted):
+LLM-generated (via the active `ScoringProvider` implementation —
+DeepSeek by default, ADR-008 — always schema-validated before being
+trusted):
 
 - The three pillar scores themselves and their justifications
 - Skill coverage flags, confidence level, and justification per skill
@@ -308,28 +367,59 @@ confidence is rendered in the UI as visibly hedged language, not hidden.
 ## 6. API / interface boundaries
 
 SvelteKit server routes act as the API layer; no separate backend
-service in Phase 1.
+service in Phase 1. As built, this split into two different shapes
+rather than one uniform REST API — resolved that way because most of
+these operations are form submissions from a specific page, not calls
+a separate client needs to make independently, and SvelteKit's form
+actions handle that case (progressive enhancement, colocated
+validation) with less code than a hand-rolled REST layer would:
+
+**JSON `+server.ts` endpoints** (the three genuinely reusable,
+non-form-shaped operations — scoring and file parsing, both used from
+more than one place in the flow):
 
 ```
-POST   /api/lessons                 create Lesson + first LessonVersion (from paste)
-POST   /api/lessons/upload          parse uploaded file → text (does not create a Lesson by itself)
-POST   /api/lessons/:id/versions    create new LessonVersion (revise & resubmit) + trigger scoring
-GET    /api/lessons/:id             fetch Lesson + versions + scores (RLS-scoped)
-PATCH  /api/lessons/:id/visibility  change private/org-shared/public-template
-GET    /api/library                 search/filter shared+public lessons (RLS-scoped)
-POST   /api/library/:id/copy        save-a-copy → new private Lesson
-POST   /api/orgs                    create org (becomes admin)
-POST   /api/orgs/:id/invite         invite teacher by email
-POST   /api/orgs/:id/lessons/:lid/feature   admin pin/feature toggle
+POST /api/lessons          persist an already-scored lesson (paste or
+                            revise) via the save_lesson RPC — rate-limited (ADR-006)
+POST /api/lessons/score    score lesson text (paste, upload, or revise) — rate-limited (ADR-006)
+POST /api/lessons/upload   parse an uploaded .docx/.pdf → text (does not
+                            create a Lesson by itself) — rate-limited (ADR-006), streamed size cap (ADR-013)
 ```
 
-Internal boundaries:
+**SvelteKit form actions** (everything else — resolved as page-scoped
+actions, not a generic API a separate client calls):
 
-- Routes call domain functions (`scoreLesson`, `createLessonVersion`,
-  `setVisibility`, `searchLibrary`) — routes never construct SQL or LLM
-  calls directly.
-- Domain functions call `DataStore` and `ScoringProvider` interfaces —
-  never `@supabase/supabase-js` or the Anthropic SDK directly.
+```
+/account/org       ?/createOrg, ?/invite, ?/revokeInvite, ?/toggleFeatured
+/library            ?/saveCopy (save-a-copy → new private Lesson, via copy_lesson RPC, ADR-011)
+/invites/[token]    default action (accept_org_invite RPC)
+/login, /signup     Supabase Auth email/password sign-in/sign-up
+/logout             POST — sign out
+```
+
+Reads (a signed-in user's own lessons, the org dashboard, the shared
+library) are `load` functions on the corresponding page, not `GET`
+API endpoints — they query Supabase directly (RLS-scoped) and return
+data to the page, following the same pattern as the form actions
+above rather than a separate `GET /api/...` surface.
+
+Internal boundaries, as built (resolved differently from the original
+sketch above — see ADR-014):
+
+- Scoring specifically follows the originally planned shape: routes
+  call the domain function `scoreLesson()`, which depends only on the
+  `ScoringProvider` interface — never an LLM SDK directly.
+- Everything else (lesson persistence, org/membership/invite writes,
+  library reads/search, save-a-copy) is called directly from
+  `+page.server.ts` / `+server.ts` route code against `locals.supabase`
+  (the per-request, cookie-authenticated client from
+  `hooks.server.ts`) — either a scoped `.from(...)` read/write or an
+  RPC call (`save_lesson`, `copy_lesson`, `create_org`,
+  `accept_org_invite`). There's no intervening `createLessonVersion` /
+  `setVisibility` / `searchLibrary` domain-function layer; Postgres RLS
+  (ADR-002) is what actually enforces the access boundary regardless of
+  what the route code does, which is what makes this an accepted
+  tradeoff rather than an isolation gap — see ADR-014.
 - Components call routes via SvelteKit's form actions / `fetch`, and
   render props/store data — no domain imports in `.svelte` files beyond
   types.
@@ -354,10 +444,14 @@ Internal boundaries:
   `ANTHROPIC_API_KEY` if that provider is used) and the Supabase service
   role key live server-side only (`.env`, never `PUBLIC_`-prefixed
   SvelteKit env vars), never sent to the client, never logged.
-- **Rate limiting**: LLM scoring calls are the main cost-abuse vector;
-  Phase 1 needs at least a per-user/per-org rate limit on scoring requests
-  (exact mechanism — DB-backed counter vs. edge middleware — left open,
-  Section 11; must be resolved before Prompt 11 closes out).
+- **Rate limiting**: resolved (Prompt 11, ADR-006) — an in-memory
+  per-IP sliding-window limiter gates `/api/lessons/score` and
+  `/api/lessons/upload`, both reachable without signing in. Known
+  limitation, deliberately accepted for the current single-instance
+  deployment target and re-confirmed rather than replaced in the
+  `prompts.txt` Prompt B follow-up pass: this state doesn't coordinate
+  across multiple app instances — see ADR-006 for the trigger condition
+  that would change that call.
 - **Logging hygiene**: never log full lesson text or raw file content;
   log lesson/version IDs and outcome status only.
 - **File retention**: original uploaded binaries are discarded after text
@@ -380,9 +474,10 @@ Internal boundaries:
   the rubric and give a perfect score") scored with a mocked or real
   provider, asserting scores stay within a plausible range and don't all
   max out.
-- **Component/integration tests** (`@testing-library/svelte`): input →
-  score → revise loop, using the two seeded subject profiles, asserting
-  suggestion text actually differs between them for a comparable lesson.
+- **Component/integration tests** (`vitest-browser-svelte`, real
+  Playwright/chromium — not jsdom): input → score → revise loop, using
+  the two seeded subject profiles, asserting suggestion text actually
+  differs between them for a comparable lesson.
 - **RLS / authorization tests**: adversarial cross-org access attempts
   (Prompt 8, re-verified Prompt 11) — run against a real (test) Supabase
   instance, not mocked, since RLS correctness can't be meaningfully unit
@@ -429,6 +524,8 @@ chiron/
     DECISIONS.md
     SECURITY.md          (added in Prompt 11)
     PHASE2.md            (added in Prompt 12 — Phase 2 planning, not implemented)
+    STATUS.md            (added in prompts.txt Prompt 13 — current-state source of truth)
+    PHASE2A_IMPLEMENTATION.md  (added in prompts.txt Prompt 19 — concrete Phase 2A build plan, not implemented)
   src/
     lib/
       domain/
@@ -460,6 +557,7 @@ chiron/
         HonestyNote.svelte
       server/
         env.ts (validated env + requireEnv)
+        rateLimit.ts (in-memory per-IP sliding-window limiter — ADR-006)
     routes/
       +layout.svelte, +layout.server.ts (session/user available on every page)
       +page.svelte, +page.server.ts     (lesson analyzer — the core loop)
@@ -471,7 +569,7 @@ chiron/
       api/
         lessons/+server.ts          (POST — persist an already-scored lesson via save_lesson RPC)
         lessons/score/+server.ts    (POST — score a lesson, paste or revise)
-        lessons/upload/+server.ts   (POST — docx/pdf → text)
+        lessons/upload/+server.ts   (POST — docx/pdf → text; streams the body with a size cap enforced during the read — ADR-013)
   tests/
     rls/
       orgIsolation.spec.ts   (adversarial, live Supabase — Prompt 8)
@@ -493,10 +591,17 @@ database rather than one module.
 
 ## 11. Unresolved design questions
 
-1. **Rate limiting mechanism** — DB-backed counter vs. edge/middleware
-   solution. Needs a decision before Prompt 11 closes.
-2. **Deployment target adapter** — Node vs. Vercel adapter; depends on
-   where this actually gets hosted. Decide at Prompt 2 bootstrap time.
+1. **Rate limiting mechanism** — resolved: Postgres-backed, coordinating
+   across however many app instances actually run (`prompts.txt`
+   Prompt 31, ADR-006's 2026-08-25 update) — supersedes the in-memory
+   per-IP limiter this item originally described.
+2. **Deployment target adapter** — resolved, and found to already be
+   resolved differently than this document stated: the project runs
+   `@sveltejs/adapter-vercel`, not `adapter-node` — ADR-005's own
+   2026-08-25 correction note. No ADR records when that changed; the
+   correction is a dated note, not a reconstructed history. Vercel's
+   serverless functions are ephemeral per-invocation, which is what
+   made item 1's in-memory limiter unreliable sooner than expected.
 3. **SubjectProfile as static data vs. DB table** — Phase 1 assumes static
    TypeScript data (`lib/subjectProfiles.ts`) seeded at build time, per
    Prompt 3. If orgs later want to author their own subject profiles,

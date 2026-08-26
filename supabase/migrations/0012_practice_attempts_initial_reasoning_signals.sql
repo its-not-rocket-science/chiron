@@ -1,0 +1,34 @@
+-- Chiron — Phase 2A: add practice_attempts.initial_reasoning_signals
+-- (prompts.txt Prompt 34)
+--
+-- A new migration rather than editing 0009/0010 in place — those may
+-- already be deployed (project convention: never edit a historical
+-- migration that could already be live).
+--
+-- Stores the classifier's raw SignalClassification[] output for the
+-- student's INITIAL judgment reasoning — the same shape/kind of data
+-- `scoring_events` is built from for the REVISED reasoning, but never
+-- classified before this migration. Exists solely to make "reasoning
+-- signals added after challenge" (one of Prompt 34's named evaluation
+-- metrics) computable as a real before/after diff instead of a
+-- documented gap — see docs/EVALUATION_PLAN.md and
+-- src/lib/domain/practiceEvaluation.ts.
+--
+-- Deliberately a separate column from scoring_events, not merged into
+-- it: scoring_events drives the student-facing "reasoning events"
+-- feedback screen (prompts.txt Prompt 29) — these events are analysis
+-- data about the pre-challenge baseline, never meant to be shown to the
+-- student as part of their credit-worthy moves, so keeping them in a
+-- column the transition route's response never reads from removes any
+-- risk of a future UI change accidentally rendering them as if they
+-- were part of the final feedback.
+--
+-- Nullable (no default, no backfill): a session that never reaches
+-- SCORE_AND_RECORD never gets a practice_attempts row at all, and every
+-- row from this point forward always supplies this column explicitly
+-- (same write path ADR-020 established) — there is nothing to backfill
+-- for existing rows before this migration, since the classifier call
+-- that populates it didn't exist yet.
+
+alter table public.practice_attempts
+  add column initial_reasoning_signals jsonb;

@@ -14,6 +14,7 @@
 		<a href={resolve('/')} class="font-semibold text-slate-900">Chiron</a>
 		<div class="flex items-center gap-4">
 			{#if data.user}
+				<a href={resolve('/practice')} class="text-slate-600 hover:text-slate-900">Practice</a>
 				<a href={resolve('/lessons')} class="text-slate-600 hover:text-slate-900">My lessons</a>
 				<a href={resolve('/library')} class="text-slate-600 hover:text-slate-900">Library</a>
 				<a href={resolve('/account/org')} class="text-slate-600 hover:text-slate-900">My org</a>

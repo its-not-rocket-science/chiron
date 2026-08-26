@@ -16,7 +16,7 @@ const RATE_LIMIT = { requests: 30, windowMs: 10 * 60 * 1000 };
  * scoring endpoint.
  */
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
-	const rateLimit = checkRateLimit(
+	const rateLimit = await checkRateLimit(
 		`upload:${getClientAddress()}`,
 		RATE_LIMIT.requests,
 		RATE_LIMIT.windowMs

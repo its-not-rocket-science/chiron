@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Chiron — classical Art Nouveau centaur</title>
+  <desc>A stylized centaur archer inspired by classical sculpture and Art Nouveau ornament, on a transparent background.</desc>
+
+  <defs>
+    <linearGradient id="bronze" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ead29a"/>
+      <stop offset=".42" stop-color="#a97842"/>
+      <stop offset="1" stop-color="#5b382c"/>
+    </linearGradient>
+
+    <linearGradient id="darkBronze" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#754b35"/>
+      <stop offset=".55" stop-color="#39252b"/>
+      <stop offset="1" stop-color="#171722"/>
+    </linearGradient>
+
+    <linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b33f4c"/>
+      <stop offset=".55" stop-color="#6b263b"/>
+      <stop offset="1" stop-color="#291d32"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+
+    <style>
+      .outline { stroke:#211b28; stroke-width:7; stroke-linejoin:round; stroke-linecap:round; }
+      .fine { fill:none; stroke:#c89b63; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+      .ornament { fill:none; stroke:#8d5b43; stroke-width:5; stroke-linecap:round; stroke-linejoin:round; }
+    </style>
+  </defs>
+
+  <!-- Art Nouveau halo and botanical ornament -->
+  <path class="ornament" d="M256 28 C158 28 87 101 87 192 C87 221 94 248 108 272
+    M256 28 C354 28 425 101 425 192 C425 221 418 248 404 272"/>
+  <path class="ornament" d="M116 92 C82 72 59 91 68 119 C77 145 106 133 116 108
+    M396 92 C430 72 453 91 444 119 C435 145 406 133 396 108"/>
+  <path class="fine" d="M256 35 C225 71 219 106 256 135 C293 106 287 71 256 35Z"/>
+  <path class="fine" d="M256 477 C225 441 219 406 256 377 C293 406 287 441 256 477Z"/>
+
+  <path class="ornament" d="M72 293 C36 270 25 300 45 321 C65 342 88 321 105 300
+    M440 293 C476 270 487 300 467 321 C447 342 424 321 407 300"/>
+  <path class="fine" d="M74 355 C47 373 58 401 83 398 C108 395 112 368 99 346
+    M438 355 C465 373 454 401 429 398 C404 395 400 368 413 346"/>
+
+  <!-- subtle shadow -->
+  <ellipse cx="263" cy="466" rx="151" ry="16" fill="#211b28" opacity=".2" filter="url(#softShadow)"/>
+
+  <!-- Centaur body -->
+  <path class="outline" fill="url(#darkBronze)" d="M157 294
+    C121 306 101 337 104 372
+    C107 412 138 442 181 447
+    C222 452 255 438 282 416
+    C307 438 348 452 390 438
+    C430 425 447 388 434 354
+    C423 325 397 305 359 298
+    C330 292 301 301 279 318
+    C253 296 211 281 157 294Z"/>
+
+  <!-- rear horse haunch -->
+  <path class="outline" fill="url(#bronze)" d="M275 318
+    C302 281 341 262 382 275
+    C421 287 442 318 438 349
+    C434 379 412 394 385 390
+    C358 386 339 364 325 343
+    C310 324 294 316 275 318Z"/>
+
+  <!-- front horse legs -->
+  <path class="outline" fill="url(#darkBronze)" d="M326 344
+    C327 375 321 407 313 448
+    C309 467 324 475 344 469
+    L359 458
+    C347 449 344 438 350 418
+    L371 353Z"/>
+  <path class="outline" fill="url(#bronze)" d="M389 344
+    C400 374 408 406 412 443
+    C414 462 431 468 447 458
+    L452 447
+    C438 440 433 429 432 409
+    L431 345Z"/>
+
+  <!-- human torso -->
+  <path class="outline" fill="url(#bronze)" d="M177 169
+    C161 192 153 225 162 266
+    C168 293 189 313 221 316
+    C250 319 278 302 285 273
+    C293 239 286 205 270 176
+    C245 150 202 148 177 169Z"/>
+
+  <!-- flowing cloak -->
+  <path class="outline" fill="url(#cloth)" d="M169 184
+    C132 199 118 241 132 278
+    C145 310 176 330 211 333
+    C187 311 177 287 180 260
+    C184 229 197 207 213 185Z"/>
+  <path class="fine" d="M151 214 C143 251 154 285 183 306"/>
+  <path class="fine" d="M145 236 C160 225 173 224 184 230"/>
+  <path class="fine" d="M143 270 C157 261 171 261 181 268"/>
+
+  <!-- Chiron's head -->
+  <path class="outline" fill="url(#bronze)" d="M184 94
+    C190 65 217 47 248 53
+    C278 59 294 84 287 112
+    C282 135 263 153 237 155
+    C209 157 186 139 181 116Z"/>
+
+  <!-- classical hair -->
+  <path class="outline" fill="url(#darkBronze)" d="M184 107
+    C164 96 163 75 179 68
+    C174 51 195 39 210 49
+    C220 29 247 32 255 51
+    C275 41 295 57 288 76
+    C308 84 302 107 284 116
+    C273 99 262 87 245 82
+    C225 76 204 85 184 107Z"/>
+  <path class="fine" d="M187 72 C205 61 215 67 222 78
+    M223 51 C235 62 242 69 242 82
+    M263 57 C258 69 258 78 265 88"/>
+
+  <!-- face -->
+  <path fill="#d6ad72" class="outline" d="M211 91 C229 81 253 86 267 101
+    C263 122 249 137 230 139 C211 136 201 119 211 91Z"/>
+  <path fill="none" stroke="#211b28" stroke-width="5" stroke-linecap="round"
+        d="M220 104 C226 100 231 101 235 104 M247 103 C253 100 258 101 261 105"/>
+  <circle cx="229" cy="105" r="3.5" fill="#211b28"/>
+  <circle cx="253" cy="104" r="3.5" fill="#211b28"/>
+  <path fill="none" stroke="#211b28" stroke-width="4" stroke-linecap="round"
+        d="M239 108 C237 119 239 123 246 124 M226 130 C238 136 251 133 258 126"/>
+
+  <!-- shoulder and arm drawing bow -->
+  <path class="outline" fill="url(#bronze)" d="M203 177
+    C220 167 237 170 247 184
+    C256 197 251 212 239 219
+    L211 201Z"/>
+  <path class="outline" fill="url(#bronze)" d="M238 185
+    C264 169 294 145 315 119
+    L324 127
+    C304 157 278 190 250 207Z"/>
+
+  <!-- bow -->
+  <path fill="none" stroke="#4b2b2b" stroke-width="9" stroke-linecap="round"
+        d="M315 84 C356 138 354 201 315 253"/>
+  <path fill="none" stroke="#d8b77d" stroke-width="3"
+        d="M315 84 C326 140 326 198 315 253"/>
+  <path fill="none" stroke="#211b28" stroke-width="4"
+        d="M315 84 L239 184 L315 253"/>
+  <!-- arrow -->
+  <path fill="none" stroke="#e4c789" stroke-width="4" d="M239 184 L333 169"/>
+  <path fill="#e4c789" d="M333 169 L319 161 L322 176Z"/>
+
+  <!-- Art Nouveau leaves -->
+  <path class="fine" d="M108 272 C76 252 64 225 76 198 C96 204 111 224 108 272Z"/>
+  <path class="fine" d="M404 272 C436 252 448 225 436 198 C416 204 401 224 404 272Z"/>
+  <path class="fine" d="M109 272 C91 253 82 230 78 205 M403 272 C421 253 430 230 434 205"/>
+
+  <!-- decorative breast medallion -->
+  <circle cx="224" cy="224" r="18" fill="#c89b63" stroke="#211b28" stroke-width="5"/>
+  <path class="fine" d="M224 213 C214 222 218 231 224 235 C230 231 234 222 224 213Z"/>
+</svg>

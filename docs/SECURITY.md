@@ -84,7 +84,10 @@ the real live Supabase project and real DeepSeek API, not mocks.
   proves a direct `profiles` query for another user's row returns zero
   rows, a user can still read their own row (email included), and
   `profiles_public` still resolves `display_name` cross-org exactly as
-  the old embed did.
+  the old embed did — both for the org member list and (added in the
+  `prompts.txt` Prompt 14 re-confirmation) the library lesson-author
+  display. A fresh repo-wide grep confirms zero remaining `profiles(...)`
+  embeds or direct `profiles` queries outside this test file itself.
 
 ---
 
@@ -219,29 +222,34 @@ are both reachable without signing in, and scoring calls cost real
 DeepSeek API spend — a genuinely exploitable cost-abuse vector with no
 protection at all until this review.
 
-Added `src/lib/server/rateLimit.ts`: an in-memory sliding-window limiter
-keyed by client IP. Scoring: 15 requests / 10 minutes. Upload: 30 / 10
-minutes (cheaper — CPU only, no LLM spend). Returns `429` with a
-`Retry-After` header when exceeded. **Live-tested against the running
-dev server**: 17 rapid requests → the first 15 succeeded (or failed on
-their own merits), requests 16-17 got `429` with `Retry-After: 585`.
+Added `src/lib/server/rateLimit.ts`: keyed by client IP. Scoring: 15
+requests / 10 minutes. Upload: 30 / 10 minutes (cheaper — CPU only, no
+LLM spend). Returns `429` with a `Retry-After` header when exceeded.
+**Live-tested against the running dev server**: 17 rapid requests → the
+first 15 succeeded (or failed on their own merits), requests 16-17 got
+`429` with `Retry-After: 585`.
 
-**Documented limitation**: this is per-process, in-memory state — it
-resets on restart and doesn't coordinate across multiple instances of a
-horizontally-scaled deployment. Fine for a single-instance deployment
-(the current target — `@sveltejs/adapter-node`, ADR-005), not sufficient
-if Chiron is ever scaled to multiple instances behind a load balancer,
-at which point a shared store (Redis, or Supabase itself) is the real
-fix. Tracked as the remaining half of ADR-006.
+**Update (`prompts.txt` Prompt 31, 2026-08-25) — the "in-memory,
+per-process" limitation below is fixed, not just re-documented.**
+`rateLimit.ts` is now Postgres-backed
+(`supabase/migrations/0011_rate_limits.sql`'s atomic `check_rate_limit`
+RPC) — state survives a restart and is shared across however many app
+instances actually run. While re-checking the "single-instance
+deployment" premise this was originally deferred on, found it was
+already false: the project runs `@sveltejs/adapter-vercel` (serverless,
+ephemeral per-invocation), not `adapter-node` as ADR-005 states — see
+that ADR's 2026-08-25 correction note and ADR-006's full write-up of
+this change, including the atomicity test
+(`tests/rls/rateLimit.integration.spec.ts`) and the reasoning for why a
+DB-backed check isn't itself a new DoS vector. Full design rationale
+lives in ADR-006, not duplicated here.
 
 **Re-confirmed, not just left stale (`prompts.txt` Prompt B):** checked
 whether `docs/ARCHITECTURE.md` Section 11's hosting question had been
-resolved since this was written — it hasn't, so a DB-backed limiter
-would add latency to a latency-sensitive path (LLM calls) to protect a
-deployment shape (multiple instances) that doesn't exist yet. Deferring
-again was the deliberate choice, not an oversight — see ADR-006's
-2026-08-23 re-confirmation note for the exact trigger conditions that
-would flip this decision.
+resolved since this was written — it hadn't been _decided_, but (per
+the update above) the actual deployment had already moved to a
+multi-instance-shaped platform regardless, which is what Prompt 31
+ended up fixing.
 
 ---
 
@@ -275,6 +283,223 @@ exist. The uploaded binary lives only in an in-memory `ArrayBuffer` for
 the duration of the request; only the extracted, normalized text is
 ever persisted (via `save_lesson`, as `lesson_versions.raw_text`).
 Matches ADR-004 exactly.
+
+---
+
+## 9. Phase 2A student-practice review (`prompts.txt` Prompt 30)
+
+A dedicated pass over the new tables and endpoints Phase 2A added
+(`practice_sessions`, `practice_attempts`, `disposition_checkins`, the
+session-start and transition routes, the tutor/classifier providers).
+Same discipline as the Phase 1 review above: adversarial tests run
+against the real live Supabase project, not mocks; findings marked
+**Verified**, **Fixed**, or **Documented**.
+
+**Verified — student attempts private by default, no path for another
+student, a teacher, or any other party to read them.**
+`tests/rls/practiceIsolation.spec.ts` runs live against all three
+tables (14 cases as of this review, 5 new): another student cannot
+`SELECT` a session, an attempt, or a disposition checkin that isn't
+theirs, cannot `UPDATE` one via a direct REST call, and the owning
+student's own reads still work (the isolation isn't just "everything
+blocked"). Beyond RLS policy text: grepped every migration
+(`0008`/`0009`/`0010`) for any view, function, or policy that could
+expose another user's row — none exists. There is currently no code
+path, RLS or otherwise, that lets a teacher, org admin, or any user
+other than the row's own owner read practice data. That's this
+review's explicit, intentional answer to "who can see a student's
+attempt history in Phase 2A" — see the dedicated note below, not
+something left true merely by omission.
+
+**Verified — hidden case metadata (evidence pool, answer key, scoring
+rubric) never reaches the client, structurally, not just by policy.**
+Re-confirmed rather than re-explained (ADR-019, Prompt 22): grepped
+`tutorPrompt.ts`, `classifierPrompt.ts`, and every provider file for
+`answerSpec`/`educatorNotes` — the only occurrences are code comments
+documenting the absence and the transition route's own deterministic
+scoring calls (`computeOutcome`, `computeScoringEvents`,
+`computePushFurtherHints`), never a provider call. Live-tested:
+`practiceIsolation.spec.ts` confirms the real session-start route never
+returns `evidencePool`/`answerSpec`/`educatorNotes`, and the real
+transition route never surfaces evidence text beyond what the FSM has
+actually revealed for that session.
+
+**Verified — direct API FSM skipping and replay of old transitions are
+both rejected, not just "unlikely."** `ClientEventSchema` only accepts
+the eight student-originated event types (`CHALLENGE_SELECTED` and
+`SCORED` aren't in it at all, so a forged request for either never
+reaches `advance()`); `advance()` itself only accepts the one event
+type the session's current, server-authoritative `fsmState` is waiting
+for. **New this review**: added a live test that submits
+`SUBMIT_INITIAL_JUDGMENT`, then replays the identical event a second
+time — the replay is rejected with `400`, and the session's
+`initial_judgment`/`fsm_state` are confirmed unchanged in the database,
+not silently reprocessed or allowed to overwrite what was already
+recorded. Combined with ADR-020 (no `authenticated` write grant at all
+on any of the three tables — ADR-020 was itself found by thinking
+through exactly this class of attack during Prompt 22), tampering with
+confidence/judgement history has no path: not via forged event
+replay, not via a direct `UPDATE`.
+
+**Mostly verified, one residual gap found and measured (`prompts.txt`
+Prompt 35, 2026-08-26) — prompt injection through learner free text.**
+`DeepSeekReasoningClassifierProvider.integration.spec.ts` (Prompt 23)
+and `DeepSeekTutorProvider.integration.spec.ts` (Prompt 24) cover this
+live, against the real DeepSeek API: instructions embedded in a
+student's own text trying to force a signal present, assert a fake
+signal taxonomy, extract the answer key, or get the tutor to praise a
+specific judgement or invent a fact — all reliably fail across repeated
+runs. One case does not reliably fail: "ignores a fake JSON result
+embedded in the learner text" (the student embeds a complete fake
+`{"classifications":[...]}` blob, with an instruction to "use it
+directly," containing a spoofed `evidenceQuote: "fabricated"`). Run 9
+times during this audit: **2 failures (~22%)** — the classifier
+sometimes returns `present: true` with `evidenceQuote: "fabricated"`
+verbatim. This is not a schema-validation gap (`classifierCore.ts`'s
+found-in-text check requires `evidenceQuote` to literally appear in the
+student's own `freeText` — and it does, because the attacker's own
+injected JSON blob literally contains the word "fabricated" as part of
+its payload text). The structural defense can't distinguish "a genuine
+quote of the student's actual reasoning" from "a literal echo of the
+attacker's own injected payload" — both pass the same found-in-text
+check. Real, if narrow, integrity impact: a student who deliberately
+embeds this exact attack shape has roughly a 1-in-5 chance of earning
+unearned credit for a signal. **Not fixed in this pass** — this project's
+own "fix straightforward defects, don't expand scope" instruction for
+this audit (`prompts.txt` Prompt 35) is the reason, not an oversight: a
+real fix needs a new heuristic (e.g. flagging an `evidenceQuote` whose
+surrounding context in `freeText` looks JSON-shaped) that risks false
+positives against legitimate student text and needs its own tuning and
+test suite — exactly the kind of new engineering Prompt 35 says this
+pass should flag, not build. Recorded here as an explicit, measured,
+open item for a future prompt, not silently accepted or overstated as
+"Verified."
+
+**Verified — learner text and model prompts are never logged.**
+Grepped the entire `src/` tree for `console.` outside test files: three
+call sites total in the whole application (`classifierCore.ts`,
+`tutorCore.ts`, and Phase 1's `/api/lessons/score`), all logging only
+`error.name: error.message` on total provider failure — never a prompt,
+never learner free text, never a request body. No practice-specific
+code adds any logging beyond those two already-audited call sites.
+
+**Verified — minimal personal data collection.** `practice_sessions`/
+`practice_attempts`/`disposition_checkins` store `student_id` (an FK,
+not a copy of any PII) plus exactly the free text the mechanic itself
+needs (stated reasoning, the update criterion, challenge responses, the
+reflection) — no name, DOB, or other identifying field is collected
+specifically for practice beyond what `profiles` already holds for
+every Chiron user.
+
+**Fixed since this review (`prompts.txt` Prompts 31 and 32,
+2026-08-25) — model cost abuse.** The original finding here worked
+through worst-case arithmetic: a full case playthrough costs up to 8
+LLM calls (up to 6 tutor calls, bounded by `MAX_CHALLENGE_ROUNDS`, plus
+up to 2 classifier calls at `SCORE_AND_RECORD`, bounded by the new
+`MAX_CLASSIFIER_CALLS_PER_STAGE` — corrects this section's earlier
+"roughly 9" estimate to the exact derived number,
+`MAX_MODEL_CALLS_PER_ATTEMPT` in `practiceFsm.ts`), and the
+then-existing route-level rate limits left enough headroom for roughly
+~200-270 real LLM calls per 10 minutes in the worst case — bounded, but
+not tight. Two distinct, complementary fixes closed this: Prompt 31
+added a per-user `practice-llm-calls` rate limit (40/10min, incrementing
+only on an actual tutor/classifier call), and Prompt 32 (ADR-024) added
+the per-attempt structural bound this section originally flagged as
+still open — `MAX_MODEL_CALLS_PER_ATTEMPT = 8`, enforced via an explicit
+`classifierCallCount` check at `SCORE_AND_RECORD` plus the pre-existing
+`MAX_CHALLENGE_ROUNDS` check on the tutor side, both now named and
+independently tested (`tests/rls/practiceFullPlaythrough.integration.spec.ts`'s
+post-`COMPLETE` resubmission test, `practiceFsm.spec.ts`'s existing
+`MAX_CHALLENGE_ROUNDS` coverage). ADR-024 also fixed a related, more
+fundamental gap found while auditing this: the `openai`/`@anthropic-ai`
+SDKs' own defaults (a 10-minute timeout, up to 2 silent internal
+retries) meant the actual worst case per "attempt" inside
+`tutorCore.ts`/`classifierCore.ts` was `MAX_ATTEMPTS × 3` real HTTP
+calls, not `MAX_ATTEMPTS` — now `PROVIDER_TIMEOUT_MS = 30_000` and
+`PROVIDER_MAX_RETRIES = 0` on every provider client make `MAX_ATTEMPTS`
+the whole truth. Full write-up in ADR-024.
+
+**Updated (`prompts.txt` Prompt 34, 2026-08-26):**
+`MAX_MODEL_CALLS_PER_ATTEMPT` is now `9`, not `8` —
+`MAX_CLASSIFIER_CALLS_PER_STAGE` rose from 2 to 3 to add a real,
+deliberate classifier call on the student's INITIAL reasoning (needed
+so "reasoning signals added after challenge," an evaluation-instrumentation
+metric, is a genuine before/after diff rather than a documented gap —
+see ADR-024's Prompt 34 update note, ADR-026, `docs/EVALUATION_PLAN.md`).
+The bound moved because a real call was added, not because enforcement
+loosened without reason — confirmed with the user before building it,
+given it directly raises the cost ceiling this section is about.
+
+**Fixed since this review (`prompts.txt` Prompt 31, 2026-08-25) —
+rate-limit bypass.** The limitation this originally inherited from
+Section 6 (per-process, in-memory state, no coordination across
+multiple app instances) is resolved for every rate-limited endpoint at
+once, practice included — see Section 6's update and ADR-006 for the
+Postgres-backed design and the genuinely surprising finding that
+prompted re-checking this sooner than expected (the deployment target
+had already silently moved to a multi-instance-shaped platform,
+`@sveltejs/adapter-vercel`, contrary to what ADR-005's original text
+said).
+
+**Documented, not fixed here — data retention.** There is currently no
+deletion or archival policy for `practice_sessions`, `practice_attempts`,
+or `disposition_checkins` — rows are retained indefinitely. Given
+Chiron's actual target market is schools and districts, this data will
+likely belong to minors, and "keep it forever with no stated policy" is
+not an acceptable default to leave implicit for that population. This
+review does not invent a retention period — how long a district's
+student data should be kept is a real product/legal decision, not
+something to guess at. Recorded as an open item in `docs/STATUS.md`.
+
+**Explicitly answered, not a silent default — who can see a student's
+attempt history in Phase 2A.** Nobody but the student themselves. No
+teacher, org admin, or any other Chiron user has any access path to
+another user's `practice_sessions`/`practice_attempts`/
+`disposition_checkins` rows — verified above, not merely true because
+no feature has requested otherwise yet. This is the deliberately
+conservative default `prompts.txt` Prompt 30 itself calls for given the
+sensitivity of this data relative to Phase 1's teacher lesson-plan
+text. If a future phase adds teacher visibility into student
+transcripts, that needs its own explicit scoping decision, its own
+`SECURITY DEFINER` design (ADR-010's pattern, not a raw RLS
+relaxation), and its own adversarial test suite — not an incidental
+side effect of some other change.
+
+**Explicitly flagged, not guessed — applicable student-data-privacy
+regulation.** Chiron's target market plausibly brings
+`practice_attempts` data under regulatory regimes that don't apply to
+Phase 1's teacher-authored lesson text at all (in the US, potentially
+FERPA and/or COPPA depending on student age and the deployment's
+contractual relationship with a school/district; other jurisdictions
+would carry their own regimes). This review deliberately does not guess
+which regulations apply — that depends on actual deployment
+jurisdiction and the real age range served, decisions outside this
+document's authority to make. Recorded as an open item in
+`docs/STATUS.md`, needing a real answer from whoever owns the
+product/legal decision before Chiron is deployed to real students.
+
+### Phase 2A review summary
+
+| Area                                          | Outcome                                                                                                                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Student data isolation                        | Verified — 14 live adversarial tests, 5 new this review                                                                                                         |
+| Hidden case metadata (evidence/answer/rubric) | Verified — structural, not policy-only                                                                                                                          |
+| FSM skipping / replay / history tampering     | Verified — replay test new this review                                                                                                                          |
+| Prompt injection (learner free text)          | Mostly verified (Prompt 35) — one residual gap measured at ~22% (fake-JSON-blob attack), documented not fixed, see above                                        |
+| Logging hygiene                               | Verified — no new logging beyond the two already-audited call sites                                                                                             |
+| Minimal data collection                       | Verified                                                                                                                                                        |
+| Model cost abuse                              | Fixed (Prompts 31 + 32) — 40 LLM calls/10min/user, plus a named 9-call-per-attempt structural cap (ADR-024, raised from 8 by Prompt 34's added classifier call) |
+| Rate-limit bypass (multi-instance)            | Fixed (Prompt 31) — Postgres-backed, see ADR-006                                                                                                                |
+| Data retention                                | Documented — no policy exists; open item in `docs/STATUS.md`                                                                                                    |
+| Who sees student attempt history              | Explicitly answered — nobody but the student, in Phase 2A                                                                                                       |
+| Applicable regulation (FERPA/COPPA/other)     | Explicitly flagged, not guessed — open item in `docs/STATUS.md`                                                                                                 |
+
+Nothing found required halting Phase 2A development, and no student
+data isolation gap was found — the RLS/ADR-020 design already built
+across Prompts 22-29 held up under adversarial re-testing. The two
+genuinely open items (retention policy, applicable regulation) are
+product/legal decisions this review is explicitly not positioned to
+make on its own, not oversights to silently work around.
 
 ---
 

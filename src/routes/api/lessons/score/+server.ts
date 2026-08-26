@@ -24,12 +24,11 @@ const RATE_LIMIT = { requests: 15, windowMs: 10 * 60 * 1000 };
  * whatever it got last time to render the before/after view; nothing is
  * persisted server-side yet (that lands with accounts/library in
  * Prompt 8). Reachable without signing in, and each call costs real LLM
- * API spend, so it's rate-limited per IP (Prompt 11 — see
- * src/lib/server/rateLimit.ts for the known limitations of this
- * in-memory approach).
+ * API spend, so it's rate-limited per IP (Prompt 11, Postgres-backed
+ * since Prompt 31 — see src/lib/server/rateLimit.ts).
  */
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
-	const rateLimit = checkRateLimit(
+	const rateLimit = await checkRateLimit(
 		`score:${getClientAddress()}`,
 		RATE_LIMIT.requests,
 		RATE_LIMIT.windowMs

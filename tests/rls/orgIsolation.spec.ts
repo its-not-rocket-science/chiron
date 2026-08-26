@@ -361,4 +361,20 @@ describe.skipIf(!hasSupabase)('RLS — org isolation (adversarial, live Supabase
 		expect(members.data?.length).toBeGreaterThan(0);
 		expect(members.data?.[0]).toHaveProperty('profiles_public');
 	});
+
+	// --- prompts.txt Prompt 14 — re-confirms Prompt A's fix against the
+	// one embed site (library lesson-author display) Prompt A's own tests
+	// didn't separately exercise (only the org member list was tested).
+
+	it('the library lesson-author embed resolves through profiles_public too', async () => {
+		const asOutsider = await outsiderClient
+			.from('lessons')
+			.select('id, profiles_public(display_name)')
+			.eq('id', publicTemplateLessonId)
+			.maybeSingle()
+			.returns<{ id: string; profiles_public: { display_name: string } | null }>();
+		expect(asOutsider.error).toBeNull();
+		expect(asOutsider.data).toHaveProperty('profiles_public');
+		expect(asOutsider.data?.profiles_public?.display_name).toBeTruthy();
+	});
 });

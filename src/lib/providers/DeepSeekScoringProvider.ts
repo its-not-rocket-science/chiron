@@ -3,6 +3,7 @@ import { requireEnv } from '$lib/server/env';
 import type { ScoringResult } from '$lib/domain/schemas';
 import { scoreWithLLM, type CreateMessageFn } from './llmScoringCore';
 import type { ScoringProvider, ScoringProviderInput } from './ScoringProvider';
+import { PROVIDER_MAX_RETRIES, PROVIDER_TIMEOUT_MS } from './providerCallDefaults';
 
 export const DEFAULT_DEEPSEEK_SCORING_MODEL = 'deepseek-chat';
 
@@ -16,7 +17,9 @@ function defaultCreateMessage(apiKey?: string): CreateMessageFn {
 	return async ({ model, system, userMessage }) => {
 		client ??= new OpenAI({
 			apiKey: apiKey ?? requireEnv('DEEPSEEK_API_KEY'),
-			baseURL: DEEPSEEK_BASE_URL
+			baseURL: DEEPSEEK_BASE_URL,
+			timeout: PROVIDER_TIMEOUT_MS,
+			maxRetries: PROVIDER_MAX_RETRIES
 		});
 
 		const response = await client.chat.completions.create({
