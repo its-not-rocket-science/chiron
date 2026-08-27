@@ -34,10 +34,20 @@ export const actions: Actions = {
 			return fail(400, { error: 'Password must be at least 8 characters.' });
 		}
 
+		// Supabase's confirmation email redirects to Site URL by default,
+		// not wherever the app is actually running — without this,
+		// confirming lands the user on whatever the dashboard's Site URL
+		// happens to be (e.g. a leftover localhost default) instead of this
+		// deployment. url.origin makes it correct regardless of
+		// environment; the target still needs to be on Supabase's Redirect
+		// URLs allowlist (Authentication > URL Configuration) or Supabase
+		// silently falls back to Site URL anyway.
+		const emailRedirectTo = `${url.origin}${safeRedirectTarget(url.searchParams.get('redirect'))}`;
+
 		const { data, error } = await locals.supabase.auth.signUp({
 			email,
 			password,
-			options: { data: { display_name: displayName.trim() } }
+			options: { data: { display_name: displayName.trim() }, emailRedirectTo }
 		});
 
 		if (error) return fail(400, { error: error.message });
