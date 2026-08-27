@@ -58,7 +58,7 @@ will show a clear "not configured" state instead of crashing.
 | Command             | What it does                         |
 | ------------------- | ------------------------------------ |
 | `npm run dev`       | Start the dev server                 |
-| `npm run build`     | Production build (Node adapter)      |
+| `npm run build`     | Production build (Vercel adapter)    |
 | `npm run preview`   | Preview the production build locally |
 | `npm run check`     | Svelte + TypeScript type checking    |
 | `npm run lint`      | Prettier check + ESLint              |
@@ -86,17 +86,25 @@ active, Anthropic swappable — ADR-008). Most other Supabase access
 (lesson persistence, org/library operations) is called directly from
 route code against RLS-scoped queries and RPCs, not through a
 `DataStore` abstraction — see `docs/ARCHITECTURE.md` Section 6 and
-ADR-014 for why. See `docs/ARCHITECTURE.md` Section 1 for the full
-layering.
+ADR-014 for why. The one exception is the content-hash scoring cache,
+which has no owner or visibility to get wrong and so does go through
+`DataStore`/`SupabaseDataStore`'s service-role client. See
+`docs/ARCHITECTURE.md` Section 1 for the full layering.
 
 ## Status
 
-Phase 1 (MVP) is complete and hardened — see **`docs/STATUS.md`** for
-the current, concise summary of what's implemented, known technical and
-security debt, and Phase 2 status, rather than a per-prompt changelog
-here. Highlights: teacher-facing lesson analyzer (score, revise,
-before/after), accounts/orgs/shared library with Postgres RLS as the
-isolation boundary (adversarially tested live, `tests/rls/orgIsolation.spec.ts`),
-a pre-deployment security review with every finding now Fixed or
-Verified (`docs/SECURITY.md`), and a Phase 2 (student practice mode)
-planning document (`docs/PHASE2.md`) — design only, nothing implemented.
+Phase 1 (MVP) is complete and hardened, including a Phase 1 polish pass
+(few-shot scoring calibration, prompt-version tracking, a structured
+lesson-input mode, script-swap suggestions, a resubmission cache, and a
+teacher progress dashboard). Phase 2A (a student-facing practice mode)
+is also complete and built, not just designed — see **`docs/STATUS.md`**
+for the current, concise summary of what's implemented, known technical
+and security debt, and what's still explicitly deferred, rather than a
+per-prompt changelog here. Highlights: teacher-facing lesson analyzer
+(score, revise, before/after), accounts/orgs/shared library with
+Postgres RLS as the isolation boundary (adversarially tested live,
+`tests/rls/orgIsolation.spec.ts`), a pre-deployment security review with
+every finding now Fixed or Verified (`docs/SECURITY.md`), and a built
+Phase 2A practice mode (`docs/PHASE2.md` for the design, `docs/STATUS.md`
+for build status) — real-user testing is the next explicit gate before
+any Phase 2B scope.

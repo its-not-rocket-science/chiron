@@ -31,7 +31,9 @@ sections below.
   admin/teacher roles, admin-only lesson featuring.
 - **Lessons**: `private` / `org-shared` / `public-template` visibility,
   enforced by Postgres RLS (ADR-002), adversarially tested against the
-  live database (`tests/rls/orgIsolation.spec.ts`, 18 cases).
+  live database (`tests/rls/orgIsolation.spec.ts`, 19 cases; the org
+  score benchmark added in Prompt P6 has its own adversarial suite,
+  `tests/rls/orgScoreBenchmark.spec.ts`, 4 cases).
 - **Shared library** (`/library`): search/filter by subject, grade,
   minimum pillar scores; save-a-copy always lands as a new private
   lesson (ADR-011).
@@ -49,11 +51,32 @@ sections below.
   intent rather than what was actually built (see ADR-014 for the one
   substantive divergence found: routes call Supabase directly, not
   through a `DataStore` abstraction).
+- **Phase 1 polish** (`prompts.txt` Part 5, Prompts P1-P6, complete
+  2026-08-27): few-shot worked examples plus low temperature for
+  scoring consistency; prompt-version tracking on every stored score
+  (`SCORING_PROMPT_VERSION`, migration `0013`); an optional structured
+  4-field lesson input mode alongside the existing free-text mode; a
+  verbatim script-swap suggestion (quote + Socratic/peer-to-peer
+  rewrite) when the dialogue pillar scores 0 or 1; a content-hash
+  scoring cache (migration `0014`) that gave `DataStore`/
+  `SupabaseDataStore` their first real, wired-in use — see "Known
+  technical debt" below; a teacher progress dashboard (`/dashboard`)
+  with an org-scoped score benchmark computed by a new SECURITY
+  DEFINER function (migration `0015`), adversarially tested against
+  the real Supabase project
+  (`tests/rls/orgScoreBenchmark.spec.ts`). ADR-027 records the one
+  explicit design decision this track required: a byte-identical
+  lesson resubmission still creates a new saved-lesson row, because
+  there's no "revise an existing saved lesson" code path for it to be
+  a no-op of.
 
 Verification standard for all of the above: `npm run check && npm run
 lint && npm test && npm run build` green, plus the live adversarial RLS
 suite and live prompt-injection suite run against the real Supabase
-project / real DeepSeek API, not mocks — see `docs/SECURITY.md`.
+project / real DeepSeek API, not mocks — see `docs/SECURITY.md`. Current
+count: 434 tests, 433 passing (the one failure is the same pre-existing
+environment artifact described in the Phase 2A completion report below,
+not a defect).
 
 ## Current architecture (one-paragraph version)
 
@@ -65,15 +88,21 @@ call path that goes through a domain function
 (`scoreLesson()` → `ScoringProvider`); everything else that touches
 Supabase is called directly from route code against `locals.supabase`,
 with Postgres RLS as the actual isolation boundary rather than an
-app-layer abstraction (ADR-014). Full detail: `docs/ARCHITECTURE.md`.
+app-layer abstraction (ADR-014) — the one exception is the content-hash
+scoring cache (`prompts.txt` Prompt P5), a non-RLS-scoped memoization
+store with no owner or visibility to get wrong, served through
+`DataStore`/`SupabaseDataStore`'s service-role client instead. Full
+detail: `docs/ARCHITECTURE.md`.
 
 ## Known technical debt
 
-- `DataStore`/`SupabaseDataStore` exist but are unused by any route — a
-  vestigial service-role connectivity check with its own spec test,
-  nothing more (ADR-014). Candidate for deletion, or for becoming real
-  if a second concrete implementation is ever actually needed; neither
-  has happened yet, so it's been left alone rather than guessed at.
+- `DataStore`/`SupabaseDataStore` — `ping()` is still a standalone,
+  unused-by-any-route connectivity check, but the scoring-cache methods
+  (`getCachedScore`/`saveCachedScore`, Prompt P5) are genuinely wired
+  into the request path from `POST /api/lessons/score`. ADR-014's
+  reasoning is unchanged for everything else — lesson persistence and
+  org/library operations still go through `locals.supabase` directly —
+  this is a narrow, explicitly justified exception, not a reversal.
 - Hosting platform itself is still not the subject of any ADR decision
   (`docs/ARCHITECTURE.md` Section 11) — but `svelte.config.js` actually
   runs `@sveltejs/adapter-vercel`, not `adapter-node` as ADR-005 still
@@ -248,12 +277,9 @@ early.
 
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
-- Everything in `prompts.txt` Part 5 (P1-P6): few-shot scoring
-  calibration, prompt/model versioning on stored scores, a structured
-  4-field lesson input mode, script-swap suggestions, resubmission
-  caching, and a teacher progress dashboard with an org benchmark.
-  These are Phase 1 polish — independent of Phase 2, no dependency
-  either direction, run whenever convenient.
+- `prompts.txt` Prompt 37 (real-user-test analysis) — explicitly
+  blocked on real tester data that doesn't exist yet; do not run it
+  early. Prompt 36's instrumentation is ready and waiting.
 - Phase 2B feature candidates (AI case generation, teacher-assigned
   missions, adaptive sequencing, a public case marketplace, etc.) —
   explicitly not ranked or scoped until Prompt 37's real-user-testing
