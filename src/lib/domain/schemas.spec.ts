@@ -268,6 +268,37 @@ describe('SuggestionSchema', () => {
 			SuggestionSchema.parse({ id: uuid(), scoreId: uuid(), pillar: 'creativity', text: 'x' })
 		).toThrow();
 	});
+
+	it('accepts a null suggestedScriptSwap, and defaults it to null when omitted (prompts.txt Prompt P4)', () => {
+		const parsedExplicitNull = SuggestionSchema.parse({
+			id: uuid(),
+			scoreId: uuid(),
+			pillar: 'dialogue',
+			text: 'x',
+			suggestedScriptSwap: null
+		});
+		expect(parsedExplicitNull.suggestedScriptSwap).toBeNull();
+
+		const parsedOmitted = SuggestionSchema.parse({
+			id: uuid(),
+			scoreId: uuid(),
+			pillar: 'dialogue',
+			text: 'x'
+		});
+		expect(parsedOmitted.suggestedScriptSwap).toBeNull();
+	});
+
+	it('accepts a populated suggestedScriptSwap (prompts.txt Prompt P4)', () => {
+		const parsed = SuggestionSchema.parse({
+			id: uuid(),
+			scoreId: uuid(),
+			pillar: 'dialogue',
+			text: 'x',
+			suggestedScriptSwap:
+				'Original: "What is the water cycle?"\nRewrite: "What would happen if evaporation stopped — what should we expect to see?"'
+		});
+		expect(parsed.suggestedScriptSwap).toContain('Original:');
+	});
 });
 
 describe('ScoringResultSchema', () => {

@@ -132,7 +132,15 @@ export const SuggestionSchema = z.object({
 	id: id(),
 	scoreId: id(),
 	pillar: PillarIdSchema,
-	text: z.string().min(1)
+	text: z.string().min(1),
+	/**
+	 * A verbatim quote of a teacher line plus a rewritten Socratic/
+	 * peer-to-peer version — only ever populated for a dialogue
+	 * suggestion when the model could identify a concrete line to rewrite
+	 * (prompts.txt Prompt P4). Null otherwise, including for every other
+	 * pillar.
+	 */
+	suggestedScriptSwap: z.string().min(1).nullable().default(null)
 });
 export type Suggestion = z.infer<typeof SuggestionSchema>;
 

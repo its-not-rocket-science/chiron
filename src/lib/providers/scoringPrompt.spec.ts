@@ -95,6 +95,15 @@ describe('buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt(scienceLab);
 		expect(prompt).toMatch(/not the abbreviated worked-example judgments above/);
 	});
+
+	it('instructs a verbatim script-swap quote+rewrite for a low dialogue score, null otherwise (prompts.txt Prompt P4)', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/quote it verbatim in "suggestedScriptSwap"/);
+		expect(prompt).toMatch(
+			/never fabricate a quote that is not actually present in the lesson text/
+		);
+		expect(prompt).toContain('"suggestedScriptSwap": string | null');
+	});
 });
 
 describe('buildFewShotExamples', () => {

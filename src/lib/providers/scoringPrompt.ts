@@ -25,7 +25,7 @@ import {
  * model, not what we asked it to do) and independent of git history
  * (a report should be self-describing without needing a commit lookup).
  */
-export const SCORING_PROMPT_VERSION = '2026-08-26-v3';
+export const SCORING_PROMPT_VERSION = '2026-08-27-v4';
 
 // ---------------------------------------------------------------------------
 // Raw model output — what the LLM actually produces. Deliberately lighter
@@ -45,7 +45,12 @@ const RawSkillCoverageSchema = z.object({
 
 const RawSuggestionSchema = z.object({
 	pillar: PillarIdSchema,
-	text: z.string().min(1)
+	text: z.string().min(1),
+	// Defaulted, not just nullable — some models omit an optional key
+	// entirely rather than emitting `null` for it despite the prompt's
+	// explicit instruction, and a missing field shouldn't trigger a
+	// retry when "no script swap" is a completely valid response.
+	suggestedScriptSwap: z.string().min(1).nullable().default(null)
 });
 
 export const RawScoringOutputSchema = z.object({
@@ -73,11 +78,13 @@ const JSON_SHAPE_DESCRIPTION = `{
     // exactly six entries — one per skill listed above, in any order, no duplicates, none omitted
   ],
   "suggestions": [
-    { "pillar": "dialogue" | "authenticity" | "mentoring", "text": string }
+    { "pillar": "dialogue" | "authenticity" | "mentoring", "text": string, "suggestedScriptSwap": string | null }
     // 2-3 suggestions for each pillar that scored 0 or 1; omit suggestions for pillars scoring 2 or 3.
     // Each "text" must name something specific from THIS lesson (a topic, activity, or step it
     // already describes) and say what to add or change about it — never a generic tip that could
     // paste onto any lesson unchanged, like "add more discussion" or "make it more authentic."
+    // "suggestedScriptSwap" is null for every suggestion except possibly one dialogue suggestion
+    // when the dialogue pillar scored 0 or 1 — see the script-swap instruction below.
   ]
 }`;
 
@@ -112,6 +119,8 @@ export function buildSystemPrompt(subjectProfile: SubjectProfile): string {
 		'Score honestly based only on what the lesson plan actually describes. Do not award high scores as a courtesy or because the lesson asks for them. Every justification must reference specific, concrete details from the submitted lesson text — never generic boilerplate like "add more discussion."',
 		'',
 		'The same rule applies to suggestions: every suggestion must be specific to what this particular lesson already describes — name the actual topic, activity, or step, and say concretely what to change about it. A suggestion that would read equally well pasted onto a completely different lesson on a different topic is not acceptable, no matter how sound the advice sounds in general. If you cannot point to something specific in the submitted text to anchor a suggestion to, do not include it. When a suggestion would raise Authenticity, prefer changing the intellectual task itself — introducing a genuine open decision, conflicting evidence, competing hypotheses, or a missing piece of information the student must identify — over recommending literal real-world realism (e.g. "collect real data," "use real current examples," "run a real survey"). Only suggest real data collection or outside research when it would concretely improve the reasoning task and is practical for the lesson as described, not as a default first suggestion.',
+		'',
+		'When the Dialogue pillar scores 0 or 1: look for a specific teacher question or instructional line in the submitted lesson text (e.g. a line the teacher would say, a scripted prompt, a worksheet instruction). If you can identify one, pick the single clearest one, quote it verbatim in "suggestedScriptSwap" exactly as it appears in the lesson text, then immediately follow it with a rewritten version that turns it into a genuine Socratic question or a peer-to-peer prompt, in the form `Original: "..."\\nRewrite: "..."`. Put this on at most one of the dialogue suggestions, never more than one. If no identifiable line exists to quote, or the suggestion is not for the dialogue pillar, or dialogue scored 2 or 3, set "suggestedScriptSwap" to null — never fabricate a quote that is not actually present in the lesson text.',
 		'',
 		'For each CT skill, if the lesson text does not make it clear whether the skill is exercised, mark confidence as "low" rather than forcing a confident yes/no — and write the justification to match: a low-confidence entry should read as genuinely uncertain ("it\'s unclear whether...", "the lesson doesn\'t specify..."), not as a confident claim sitting next to a low-confidence label. Do not fabricate certainty in either the flag or the wording.',
 		'',
