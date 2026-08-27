@@ -14,7 +14,8 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:calibration": "node --env-file=.env --import tsx scripts/run-scorer-calibration.ts"
+		"test:calibration": "node --env-file=.env --import tsx scripts/run-scorer-calibration.ts",
+		"test:user-report": "node --env-file=.env --import tsx scripts/export-user-test.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

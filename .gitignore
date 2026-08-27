@@ -33,3 +33,9 @@ vite.config.ts.timestamp-*
 !/artifacts/calibration/baseline.txt
 !/artifacts/calibration/after-m3-fix.json
 !/artifacts/calibration/after-m3-fix.txt
+
+# Generated user-test reports (chiron_calibration_feedback_and_automation_prompts.txt)
+# — real tester data, gitignored entirely by default, no committed
+# reference pair the way calibration has one.
+/artifacts/user-tests/*
+!/artifacts/user-tests/.gitkeep

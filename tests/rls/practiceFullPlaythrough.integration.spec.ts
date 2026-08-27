@@ -49,6 +49,11 @@ function fakeRequestEvent(overrides: {
 		}),
 		params: overrides.params ?? {},
 		locals: { user: overrides.user, supabase: overrides.supabase },
+		// The session-start route reads a cohort cookie
+		// (chiron_calibration_feedback_and_automation_prompts.txt) — a
+		// no-op stub here since this file isn't testing cohort behavior,
+		// just needs `cookies.get` to exist rather than throw.
+		cookies: { get: () => undefined },
 		getClientAddress: () => `test-${randomUUID()}`
 	};
 }
@@ -88,7 +93,7 @@ describe.skipIf(!hasSupabase || !hasApiKey)(
 					user: { id: userId!, email: null },
 					supabase: userClient,
 					body: { caseId: sourceCase.id }
-				}) as Parameters<typeof startSession>[0]
+				}) as unknown as Parameters<typeof startSession>[0]
 			);
 			expect(startResponse.status).toBe(200);
 			const { sessionId } = await startResponse.json();
@@ -101,7 +106,7 @@ describe.skipIf(!hasSupabase || !hasApiKey)(
 						supabase: userClient,
 						params: { id: sessionId },
 						body
-					}) as Parameters<typeof transition>[0]
+					}) as unknown as Parameters<typeof transition>[0]
 				);
 				const json = await response.json();
 				expect(
@@ -224,7 +229,7 @@ describe.skipIf(!hasSupabase || !hasApiKey)(
 						dispositionItem: 'Being diligent about seeking out relevant information',
 						response: 4
 					}
-				}) as Parameters<typeof transition>[0]
+				}) as unknown as Parameters<typeof transition>[0]
 			);
 			expect(replay.status).toBe(400);
 

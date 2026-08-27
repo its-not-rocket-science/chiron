@@ -17,7 +17,15 @@ const serverSchema = z.object({
 	PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
 	SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 	ANTHROPIC_API_KEY: z.string().min(1).optional(),
-	DEEPSEEK_API_KEY: z.string().min(1).optional()
+	DEEPSEEK_API_KEY: z.string().min(1).optional(),
+	// Comma-separated allowlist of valid user-test cohort ids
+	// (chiron_calibration_feedback_and_automation_prompts.txt) — a
+	// simple server-side config mechanism rather than a new DB table,
+	// consistent with how the rest of this file already centralizes
+	// small config values. Absent/empty means no cohort is valid, so a
+	// misconfigured deployment fails closed (every ?test= param ignored)
+	// rather than open.
+	USER_TEST_COHORTS: z.string().optional()
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -42,7 +50,8 @@ export const env: ServerEnv = parseServerEnv({
 	PUBLIC_SUPABASE_ANON_KEY: publicEnv.PUBLIC_SUPABASE_ANON_KEY,
 	SUPABASE_SERVICE_ROLE_KEY: privateEnv.SUPABASE_SERVICE_ROLE_KEY,
 	ANTHROPIC_API_KEY: privateEnv.ANTHROPIC_API_KEY,
-	DEEPSEEK_API_KEY: privateEnv.DEEPSEEK_API_KEY
+	DEEPSEEK_API_KEY: privateEnv.DEEPSEEK_API_KEY,
+	USER_TEST_COHORTS: privateEnv.USER_TEST_COHORTS
 });
 
 /**

@@ -43,6 +43,11 @@ function fakeRequestEvent(overrides: {
 		}),
 		params: overrides.params ?? {},
 		locals: { user: overrides.user, supabase: overrides.supabase },
+		// The session-start route reads a cohort cookie
+		// (chiron_calibration_feedback_and_automation_prompts.txt) — a
+		// no-op stub here since this file isn't testing cohort behavior,
+		// just needs `cookies.get` to exist rather than throw.
+		cookies: { get: () => undefined },
 		getClientAddress: () => `test-${randomUUID()}`
 	};
 }
@@ -317,7 +322,7 @@ describe.skipIf(!hasSupabase)(
 					user: { id: userAId!, email: null },
 					supabase: userAClient,
 					body: { caseId: causalCase.id }
-				}) as Parameters<typeof startSession>[0]
+				}) as unknown as Parameters<typeof startSession>[0]
 			);
 			const body = await response.json();
 			expect(body.case).toBeDefined();
@@ -339,7 +344,7 @@ describe.skipIf(!hasSupabase)(
 					user: { id: userAId!, email: null },
 					supabase: userAClient,
 					body: { caseId: causalCase.id }
-				}) as Parameters<typeof startSession>[0]
+				}) as unknown as Parameters<typeof startSession>[0]
 			);
 			const { sessionId } = await startResponse.json();
 
@@ -355,7 +360,7 @@ describe.skipIf(!hasSupabase)(
 						type: 'SCORED',
 						explanation: { detectedSignals: [], matchedRuleId: null, outcome: 'correct' }
 					}
-				}) as Parameters<typeof transition>[0]
+				}) as unknown as Parameters<typeof transition>[0]
 			);
 			expect(forgedResponse.status).toBe(400);
 
@@ -371,7 +376,7 @@ describe.skipIf(!hasSupabase)(
 						judgment: 'uncertain',
 						reasoning: 'Not sure yet.'
 					}
-				}) as Parameters<typeof transition>[0]
+				}) as unknown as Parameters<typeof transition>[0]
 			);
 			const judgmentBody = await judgmentResponse.json();
 			expect(judgmentBody).not.toHaveProperty('result');
@@ -386,7 +391,7 @@ describe.skipIf(!hasSupabase)(
 					user: { id: userAId!, email: null },
 					supabase: userAClient,
 					body: { caseId: causalCase.id }
-				}) as Parameters<typeof startSession>[0]
+				}) as unknown as Parameters<typeof startSession>[0]
 			);
 			const { sessionId } = await startResponse.json();
 
@@ -401,7 +406,7 @@ describe.skipIf(!hasSupabase)(
 							judgment: 'uncertain',
 							reasoning: 'Not sure yet.'
 						}
-					}) as Parameters<typeof transition>[0]
+					}) as unknown as Parameters<typeof transition>[0]
 				);
 
 			const first = await submitJudgment();
@@ -432,7 +437,7 @@ describe.skipIf(!hasSupabase)(
 					user: { id: userAId!, email: null },
 					supabase: userAClient,
 					body: { caseId: causalCase.id }
-				}) as Parameters<typeof startSession>[0]
+				}) as unknown as Parameters<typeof startSession>[0]
 			);
 			const { sessionId } = await startResponse.json();
 
@@ -446,7 +451,7 @@ describe.skipIf(!hasSupabase)(
 						judgment: 'uncertain',
 						reasoning: 'x'.repeat(FREE_TEXT_MAX_LENGTH + 1)
 					}
-				}) as Parameters<typeof transition>[0]
+				}) as unknown as Parameters<typeof transition>[0]
 			);
 			expect(oversizedResponse.status).toBe(400);
 
@@ -472,7 +477,7 @@ describe.skipIf(!hasSupabase)(
 						judgment: 'uncertain',
 						reasoning: 'x'.repeat(FREE_TEXT_MAX_LENGTH)
 					}
-				}) as Parameters<typeof transition>[0]
+				}) as unknown as Parameters<typeof transition>[0]
 			);
 			expect(atLimitResponse.status).toBe(200);
 		}, 20_000);

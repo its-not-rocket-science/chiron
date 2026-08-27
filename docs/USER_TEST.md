@@ -9,16 +9,28 @@ and attempt data actually get read and evaluated — running that
 analysis before real data exists is explicitly out of scope for this
 document.
 
-No new runtime feature was needed to administer this test. Checked,
-not assumed: signup requires no org (`practice`'s own route guard only
-checks `locals.user`), and `/practice` is reachable by any signed-in
-account with no other setup. The existing signup → `/practice` flow
-already lets 5-20 testers complete all three cases end to end — see
-"How to run it" below for the concrete steps. The one small addition
-this pass made is `computeConfidenceShift` in `practiceEvaluation.ts`
-(a pure function, same shape as its existing siblings) — needed to
-answer one of the behavioural-indicator questions below honestly rather
-than by hand-waving; not a platform feature.
+Signup requires no org (`practice`'s own route guard only checks
+`locals.user`), and `/practice` is reachable by any signed-in account
+with no other setup — the existing signup → `/practice` flow already
+lets 5-20 testers complete all three cases end to end. Prompt 36 needed
+one small addition on top of that, `computeConfidenceShift` in
+`practiceEvaluation.ts` (a pure function, same shape as its existing
+siblings), to answer one behavioural-indicator question honestly rather
+than by hand-waving.
+
+`chiron_calibration_feedback_and_automation_prompts.txt` then closed
+the two real gaps that pass left as manual work: there was no way to
+tag a specific batch of sessions as one test round (every
+`practice_sessions` row in the project was implicitly "the" cohort),
+and pulling data for review meant hand-querying Supabase. Now: a
+cohort-tagged entry link (`/practice?test=<id>`, an env-configured
+allowlist — see "How to run it"), an in-app feedback form shown after
+a cohort tester finishes all three cases (`user_test_feedback`, no
+separate survey tool needed), and one CLI command
+(`npm run test:user-report`) that produces a self-contained,
+pseudonymised report. The structured-feedback-instrument text below is
+now literally what that in-app form asks, not a spec for a form you
+build yourself.
 
 ## Scope: what this test is and isn't
 
@@ -49,17 +61,25 @@ being made here.
 
 ## How to run it
 
-1. **Recruit 5-20 testers.** Anyone unfamiliar with Chiron's internals
+1. **Create/enable the cohort.** Pick a cohort id (e.g. `alpha-2026-08`
+   — a short, dated slug is easiest to keep straight across rounds) and
+   add it to `USER_TEST_COHORTS` in the deployment's environment (a
+   comma-separated list — see `.env.example`). A cohort id not on this
+   list is inert: `?test=` is silently ignored and the tester gets the
+   normal, untracked experience. Redeploy/restart after changing it.
+2. **Recruit 5-20 testers.** Anyone unfamiliar with Chiron's internals
    is more useful here than a colleague who already knows the mechanic
    — the questions below are specifically about first-encounter
    understandability.
-2. **Account setup**: have each tester sign up normally at `/signup`
-   (email/password) — no org needed, no invite code needed. Send them
-   directly to `/practice` afterward (e.g. `/signup?redirect=/practice`
-   as the link you share, so they land on the case picker immediately
-   after confirming their email, not the teacher-facing lesson-scoring
-   homepage).
-3. **What to ask them to do**: complete all three canonical cases, in
+3. **Share one cohort link.** Send
+   `/signup?redirect=%2Fpractice%3Ftest%3D<cohort>` (URL-encoded so the
+   `?test=` survives the signup redirect) — a tester who signs up
+   through it lands on `/practice?test=<cohort>` right after
+   confirming their email, and every session they start from then on
+   (cookie-carried, 30 days) is tagged with that cohort automatically.
+   No org needed, no invite code needed. A tester who's already signed
+   in just needs the bare `/practice?test=<cohort>` link.
+4. **What to ask them to do**: complete all three canonical cases, in
    one sitting if practical (consistency across testers matters more
    than realism here). Each case is roughly 10-11 discrete
    steps/screens (initial judgment and reasoning, initial confidence,
@@ -67,46 +87,58 @@ being made here.
    rounds, revised judgment and reasoning, revised confidence,
    reflection, a disposition check-in) — budget **5-10 minutes per
    case, 20-30 minutes total**.
-4. **Immediately after finishing all three**, have them fill out the
-   feedback instrument below while the experience is fresh — a next-day
-   follow-up loses the specific, in-the-moment reactions the questions
-   are trying to capture.
-5. **No admin dashboard exists** (a deliberate scoping decision,
-   ADR-026 — same as calibration's own reporting, Prompt 27) — pulling
-   attempt data for review is a short manual step, covered below.
+5. **The feedback form appears automatically.** Once a cohort tester's
+   third distinct completed case reaches its end screen, a "Continue to
+   feedback" link replaces the usual "Back to practice cases" one,
+   leading to the in-app form below — no separate survey tool, no
+   reminder needed. It's shown at most once per (tester, cohort); a
+   second visit reports it as already submitted.
+6. **Run one report command** once the round is done:
+   `npm run test:user-report -- --cohort <id>` (needs
+   `SUPABASE_SERVICE_ROLE_KEY` locally — never exposed to testers).
+   See "Generating the report" below.
 
 ## Structured feedback instrument
 
-Copy these into whatever survey tool is convenient (a form, a shared
-doc, a live interview script) — the exact medium doesn't matter, the
-question set does. Suggested response type noted per question; open
-text is always welcome alongside a scale.
+This is now the actual in-app form (`/practice/feedback`,
+`src/routes/practice/feedback/+page.svelte`) a cohort tester sees after
+finishing all three cases — not a spec to build your own survey from.
+Listed here so the question set is reviewable without navigating the
+app. Some wording differs slightly on-screen from the numbered list
+below (written for the tester, not for this document), but the
+question and response type are the same.
 
-1. Was the case understandable? _(1-5 scale + open text)_
-2. Did the challenge make you reconsider anything? _(yes/no + what,
-   open text)_
+1. Were the cases understandable? _(1-5 scale)_
+2. Did the tutor make you think more carefully? _(1-5 scale)_
 3. Did new evidence feel meaningful, or did it feel like filler?
    _(1-5 scale)_
-4. Did the tutor give away the answer, at any point? _(yes/no — if yes,
-   ask them to describe when)_
-5. Did the tutor feel repetitive? _(1-5 scale)_
-6. Did "what would change your mind?" make sense as a question?
-   _(yes/no + open text — only testers who see `causal-inference-1`
-   will hit this one)_
-7. Did confidence percentages feel understandable as a way to answer?
+4. Did the tutor feel repetitive? _(1-5 scale)_
+5. Were confidence percentages understandable as a way to answer?
    _(1-5 scale)_
-8. Did the final explanation teach you anything? _(yes/no + open text)_
-9. Did you want to try another case? _(yes/no)_
-10. What felt like schoolwork? _(open text)_
-11. What felt genuinely interesting? _(open text)_
-12. At any point did the app seem to reward a particular opinion rather
-    than reasoning — like it was steering you toward a "right answer"
-    instead of just checking your reasoning? _(yes/no + open text —
-    this is the single most important question on this list: it's the
-    tester-facing check on exactly what `prompts.txt` Prompt 33's
-    neutrality suite tests from the code side. A "yes" here, even from
-    one tester, is worth investigating specifically, regardless of how
-    the rest of the instrument scores.)_
+6. Did "what would change your mind?" make sense as a question?
+   _(yes / mostly / no / not applicable — only testers who saw
+   `causal-inference-1` should answer anything but "not applicable")_
+7. At any point did Chiron seem to steer toward a particular answer
+   rather than better reasoning? _(yes/no + optional open text — this
+   is the single most important question on this list: it's the
+   tester-facing check on exactly what `prompts.txt` Prompt 33's
+   neutrality suite tests from the code side. A "yes" here, even from
+   one tester, is worth investigating specifically regardless of how
+   the rest of the instrument scores — and surfaces as a CRITICAL flag
+   in the generated report unconditionally.)_
+8. Would you voluntarily do another case? _(yes/no)_
+9. What worked best? _(open text, optional)_
+10. What most needs changing? _(open text, optional)_
+
+Narrower than Prompt 36's original 12-item instrument (dropped "did the
+tutor give away the answer" — folded into question 7's steering check
+— and "did the final explanation teach you anything," and merged
+"schoolwork/interesting" into the two general open-text questions) —
+deliberately streamlined to what `user_test_feedback`
+(migration `0016`) actually stores, per this automation prompt's own
+Section 2 field list. If a richer instrument is ever wanted again, add
+the columns first; don't let the doc and the form drift apart a second
+time.
 
 ## Behavioural indicators to review from attempt data
 
@@ -123,30 +155,54 @@ table is scoped specifically to what Prompt 36 asked for.
 | Frequency of unsupported certainty                           | `practiceCalibration.ts`'s bands, filtered to high-confidence bands with low `observedAccuracy`                                                                                                                                 | Already built, Prompt 27. With only 5-20 testers, `MIN_SAMPLE_SIZE` (5) may not be met in every band — expect some `null`s, don't force a reading out of too little data.                                                                   |
 | Use of uncertainty                                           | `computeJudgmentDistribution` (count of `'uncertain'` judgments) + signal frequency for `acknowledges_uncertainty` (from `computeSignalsAddedAfterChallenge`'s underlying counts, or a direct tally of `revisedSignalsPresent`) | Two angles on the same question: how often testers land on "uncertain" as a judgment, and how often they explicitly name uncertainty in their reasoning — these can diverge (a student can pick "uncertain" without ever articulating why). |
 
-## Pulling the data for review
+## Generating the report
 
-There's no cohort-tracking column, and none was added for this pass —
-for this specific internal test round, every `practice_sessions` row
-in the project **is** the test cohort (Phase 2A has no real deployed
-users yet). A future real deployment, with real students alongside
-internal testers, would need actual cohort tagging — out of scope
-here, flagged rather than guessed at.
+```sh
+node --env-file=.env --import tsx scripts/export-user-test.ts --cohort alpha-2026-08
+# equivalently:
+npm run test:user-report -- --cohort alpha-2026-08
+```
 
-To build the `EvaluationDataPoint[]` the functions above expect, join
-`practice_sessions` to `practice_attempts` on `session_id`
-(service-role client, same as any other cross-session read — RLS scopes
-these tables to their owning student, so a review script needs the
-service-role key, run locally by whoever's doing the review, never
-exposed to testers or committed anywhere). `disposition_checkins` joins
-in on `attempt_id` if reviewing that too. Read `transcript` for
-`tutorActions`, `initial_reasoning_signals` for `initialSignalsPresent`,
-and derive `revisedSignalsPresent` from `scoring_events` (filter to
-entries with a non-null `signal`) — exactly the shapes
-`practiceEvaluation.ts`'s own doc comments describe field by field.
+Needs `PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` in `.env` —
+run locally by whoever's doing the review, never exposed to testers or
+committed anywhere. Fetches every `practice_sessions` row tagged with
+that cohort (and their joined `practice_attempts`/
+`disposition_checkins`/`user_test_feedback`), reduces them into the
+same `EvaluationDataPoint[]`/`CalibrationDataPoint[]` shapes
+`practiceEvaluation.ts`/`practiceCalibration.ts` already expect (see
+`tests/userTest/userTestReport.ts` — mirrors the calibration harness's
+own `tests/calibration/evaluateCalibration.ts` split: pure
+reduction/aggregation logic lives under `tests/` so it's covered by
+`npm test`, the CLI script only fetches rows and writes files), and
+writes `artifacts/user-tests/<cohort>/report.{txt,json,md}`
+(gitignored by default — real tester data, no committed reference pair
+the way calibration has one).
+
+Useful flags:
+
+- `--tester <n>` — scope to one pseudonymised tester (labels are
+  assigned from the full, unfiltered cohort first, so "Tester 003"
+  means the same thing whether or not you filter).
+- `--case <id>` — scope to one canonical case.
+- `--dry-run` — print the text report to stdout, write nothing.
+
+The report is pseudonymised (`Tester 001`, `Tester 002`, ... — the
+mapping is not persisted) and contains no email address, Supabase user
+id, or auth token anywhere, including inside the raw per-tester
+transcript section — verified by
+`tests/userTest/userTestReportFormat.spec.ts`, not just asserted here.
+It also carries automated **triage flags** (CRITICAL/HIGH/MEDIUM,
+Section 8 of the automation prompt) — explicitly descriptive heuristics
+for what to look at next, not efficacy claims or a pass/fail standard;
+the report itself repeats this disclaimer next to the flags.
 
 ## After the test
 
-Once real tester feedback and attempt data exist: `prompts.txt` Prompt
-37 is the next step, not this document. Do not run that analysis
-against synthetic or anticipated data — it explicitly requires real
-results to exist first.
+**Inspect `report.txt` first** — it's the self-contained, deliberately
+LLM-readable form (executive summary, triage flags, aggregate metrics,
+survey summaries, per-case metrics, per-tester anonymised paths, then
+full raw transcripts). Once real tester feedback and attempt data
+exist and a report has been generated from them: `prompts.txt` Prompt
+37 is the next step, not this document — feed it `report.txt`. Do not
+run that analysis against synthetic or anticipated data — it explicitly
+requires real results to exist first.

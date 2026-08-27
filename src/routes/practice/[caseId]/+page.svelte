@@ -61,6 +61,8 @@
 
 	let sessionId = $state<string | null>(null);
 	let publicCase = $state<PublicPracticeCase | null>(null);
+	let testCohort = $state<string | null>(null);
+	let feedbackEligible = $state(false);
 
 	let initialJudgment = $state<EvidenceSupportJudgment | null>(null);
 	let initialReasoning = $state('');
@@ -114,6 +116,7 @@
 			const json = await post('/api/practice/sessions', { caseId: data.caseId });
 			sessionId = json.sessionId;
 			publicCase = json.case;
+			testCohort = json.testCohort ?? null;
 			step = 'intro';
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Could not start this case.';
@@ -289,10 +292,26 @@
 				response: dispositionResponse
 			});
 			step = 'complete';
+			await checkFeedbackEligibility();
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
 		} finally {
 			submitting = false;
+		}
+	}
+
+	// Only meaningful for a cohort-tracked session — a normal user never
+	// has testCohort set, so this never fires for them at all.
+	async function checkFeedbackEligibility() {
+		if (!testCohort) return;
+		try {
+			const response = await fetch(
+				`/api/practice/user-test-eligibility?cohort=${encodeURIComponent(testCohort)}`
+			);
+			const json = await response.json();
+			feedbackEligible = Boolean(response.ok && json.eligible && !json.alreadySubmitted);
+		} catch {
+			feedbackEligible = false;
 		}
 	}
 </script>
@@ -766,12 +785,23 @@
 					</p>
 				</div>
 
-				<a
-					href={resolve('/practice')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-				>
-					Back to practice cases
-				</a>
+				{#if feedbackEligible && testCohort}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- base path is resolve()-validated; only the test query VALUE is dynamic -->
+					<a
+						href={`${resolve('/practice/feedback')}?test=${encodeURIComponent(testCohort)}`}
+						class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					>
+						Continue to feedback
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{:else}
+					<a
+						href={resolve('/practice')}
+						class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					>
+						Back to practice cases
+					</a>
+				{/if}
 			</section>
 		{/if}
 	{/if}

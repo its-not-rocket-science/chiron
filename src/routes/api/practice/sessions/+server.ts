@@ -6,6 +6,7 @@ import { toPublicPracticeCase } from '$lib/domain/practiceSchemas';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { getServiceRoleClient } from '$lib/server/serviceRoleClient';
 import { practiceSessionFromRow, type PracticeSessionRow } from '$lib/server/practiceSessionRow';
+import { isValidTestCohort, TEST_COHORT_COOKIE } from '$lib/server/userTestCohorts';
 
 const RequestBodySchema = z.object({ caseId: z.string().min(1) });
 const RATE_LIMIT = { requests: 30, windowMs: 10 * 60 * 1000 };
@@ -18,7 +19,7 @@ const RATE_LIMIT = { requests: 30, windowMs: 10 * 60 * 1000 };
  * full case object, which lives only in server-side module scope
  * (ADR-019) and is never serialized into a response.
  */
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	if (!locals.user || !locals.supabase) {
 		return json(
 			{ error: { message: 'You must be signed in to start a practice case.' } },
@@ -59,6 +60,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: { message: 'Unknown case id.' } }, { status: 400 });
 	}
 
+	// Re-validated here, not just trusted from the cookie having been set
+	// once — a cohort removed from the allowlist after a tester's cookie
+	// was already stamped must stop being honored immediately.
+	const cookieCohort = cookies.get(TEST_COHORT_COOKIE) ?? null;
+	const testCohort = cookieCohort && isValidTestCohort(cookieCohort) ? cookieCohort : null;
+
 	// Writes to practice_sessions go through the service-role client, not
 	// locals.supabase — ADR-020: no RLS policy grants authenticated
 	// clients INSERT/UPDATE on this table at all, specifically so FSM
@@ -75,7 +82,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			initial_judgment: null,
 			update_criterion_text: null,
 			revised_judgment: null,
-			reflection_text: null
+			reflection_text: null,
+			test_cohort: testCohort
 		})
 		.select(
 			'id, student_id, case_id, fsm_state, revealed_evidence_ids, transcript, initial_judgment, update_criterion_text, revised_judgment, reflection_text, created_at, updated_at'
@@ -91,7 +99,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	return json({
 		sessionId: session.id,
 		fsmState: session.fsmState,
-		case: toPublicPracticeCase(practiceCase)
+		case: toPublicPracticeCase(practiceCase),
+		testCohort
 	});
 };
 
