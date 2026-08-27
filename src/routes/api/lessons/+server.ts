@@ -83,6 +83,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		p_mentoring_score: score.mentoringScore,
 		p_mentoring_justification: score.mentoringJustification,
 		p_model_id: score.modelId,
+		p_prompt_version: score.promptVersion,
 		p_skill_coverage: skillCoverage.map(({ skill, covered, confidence, justification }) => ({
 			skill,
 			covered,

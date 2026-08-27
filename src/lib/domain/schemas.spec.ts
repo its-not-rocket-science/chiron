@@ -65,6 +65,7 @@ function baseScore() {
 		mentoringScore: 1 as const,
 		mentoringJustification: 'Feedback is generic, given only at the end.',
 		modelId: 'claude-test',
+		promptVersion: 'test-prompt-v1',
 		createdAt: now()
 	};
 }

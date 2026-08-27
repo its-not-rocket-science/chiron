@@ -105,6 +105,7 @@ export const ScoreSchema = z.object({
 	mentoringScore: RubricScoreSchema,
 	mentoringJustification: z.string().min(1),
 	modelId: z.string().min(1),
+	promptVersion: z.string().min(1),
 	createdAt: timestamp()
 });
 export type Score = z.infer<typeof ScoreSchema>;

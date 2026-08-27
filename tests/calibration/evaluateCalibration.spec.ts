@@ -37,6 +37,7 @@ function scoringResult(overrides: {
 			mentoringScore: overrides.mentoring ?? 1,
 			mentoringJustification: 'j',
 			modelId: 'test-model',
+			promptVersion: 'test-prompt-v1',
 			createdAt: new Date().toISOString()
 		},
 		skillCoverage: skills.map((skill) => ({

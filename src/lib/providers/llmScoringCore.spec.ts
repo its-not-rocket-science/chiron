@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { scoreWithLLM, type CreateMessageFn } from './llmScoringCore';
+import { SCORING_PROMPT_VERSION } from './scoringPrompt';
 import { ScoringError } from './ScoringProvider';
 import { getSubjectProfile } from '$lib/domain/subjectProfiles';
 import { ctSkillIds } from '$lib/domain/taxonomy';
@@ -54,6 +55,14 @@ describe('scoreWithLLM', () => {
 		expect(result.skillCoverage).toHaveLength(6);
 		expect(result.skillCoverage.every((entry) => entry.scoreId === result.score.id)).toBe(true);
 		expect(result.suggestions.every((s) => s.scoreId === result.score.id)).toBe(true);
+	});
+
+	it('stamps the assembled score with the current scoring prompt version (prompts.txt Prompt P2)', async () => {
+		const createMessage: CreateMessageFn = vi.fn().mockResolvedValue(validRawOutputJson());
+
+		const result = await score(createMessage);
+
+		expect(result.score.promptVersion).toBe(SCORING_PROMPT_VERSION);
 	});
 
 	it('strips a ```json code fence before parsing', async () => {

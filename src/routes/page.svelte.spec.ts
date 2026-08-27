@@ -32,6 +32,7 @@ function scoringResultJson(
 			mentoringScore: overrides.mentoringScore ?? 0,
 			mentoringJustification: 'No individualized feedback is described.',
 			modelId: 'claude-sonnet-5',
+			promptVersion: 'test-prompt-v1',
 			createdAt: new Date().toISOString()
 		},
 		skillCoverage: ctSkillIds.map((skill) => ({

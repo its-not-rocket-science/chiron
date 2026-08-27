@@ -14,6 +14,7 @@ import {
 	buildUserMessage,
 	parseModelJson,
 	RawScoringOutputSchema,
+	SCORING_PROMPT_VERSION,
 	type RawScoringOutput
 } from './scoringPrompt';
 import { ScoringError, type ScoringProviderInput } from './ScoringProvider';
@@ -89,6 +90,7 @@ function toScoringResult(
 			mentoringScore: raw.mentoringScore,
 			mentoringJustification: raw.mentoringJustification,
 			modelId,
+			promptVersion: SCORING_PROMPT_VERSION,
 			createdAt: new Date().toISOString()
 		},
 		skillCoverage: raw.skillCoverage.map((entry) => ({ id: randomUUID(), scoreId, ...entry })),

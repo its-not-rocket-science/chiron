@@ -31,6 +31,7 @@ function scoreWith(
 		mentoringScore: 1,
 		mentoringJustification: 'x',
 		modelId: 'test-model',
+		promptVersion: 'test-prompt-v1',
 		createdAt: new Date().toISOString(),
 		...overrides
 	};
