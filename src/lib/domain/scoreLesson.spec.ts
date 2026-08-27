@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { scoreLesson, UnknownSubjectProfileError } from './scoreLesson';
+import { computeScoringContentHash, scoreLesson, UnknownSubjectProfileError } from './scoreLesson';
 import { compareScores, nextVersionNumber } from './versioning';
+import { ScoringResultSchema, type ScoringResult } from './schemas';
 import { AnthropicScoringProvider } from '../providers/AnthropicScoringProvider';
 import type { CreateMessageFn } from '../providers/llmScoringCore';
 import { ctSkillIds } from './taxonomy';
@@ -58,6 +59,113 @@ describe('scoreLesson (domain orchestration)', () => {
 				subjectProfile: expect.objectContaining({ id: 'science-lab' })
 			})
 		);
+	});
+});
+
+function validScoringResult(): ScoringResult {
+	const scoreId = randomUUID();
+	return ScoringResultSchema.parse({
+		score: {
+			id: scoreId,
+			lessonVersionId: randomUUID(),
+			dialogueScore: 1,
+			dialogueJustification: 'x',
+			authenticityScore: 1,
+			authenticityJustification: 'x',
+			mentoringScore: 1,
+			mentoringJustification: 'x',
+			modelId: 'test-model',
+			promptVersion: 'test-prompt-v1',
+			createdAt: new Date().toISOString()
+		},
+		skillCoverage: ctSkillIds.map((skill) => ({
+			id: randomUUID(),
+			scoreId,
+			skill,
+			covered: false,
+			confidence: 'low' as const,
+			justification: 'x'
+		})),
+		suggestions: []
+	});
+}
+
+function fakeCache() {
+	const store = new Map<string, ScoringResult>();
+	return {
+		getCachedScore: vi.fn(async (hash: string) => store.get(hash) ?? null),
+		saveCachedScore: vi.fn(async (hash: string, result: ScoringResult) => {
+			store.set(hash, result);
+		})
+	};
+}
+
+describe('scoreLesson content-hash caching (prompts.txt Prompt P5)', () => {
+	it('reuses a cached score on an identical resubmission without calling the provider again', async () => {
+		const cache = fakeCache();
+		const scoreLessonMock = vi.fn().mockResolvedValue(validScoringResult());
+		const provider: ScoringProvider = { scoreLesson: scoreLessonMock };
+		const input = {
+			lessonVersionId: randomUUID(),
+			lessonText: 'Students debate two conflicting explanations for the data.',
+			subjectProfileId: 'science-lab'
+		};
+
+		await scoreLesson(provider, input, cache);
+		expect(scoreLessonMock).toHaveBeenCalledTimes(1);
+
+		const secondVersionId = randomUUID();
+		const second = await scoreLesson(
+			provider,
+			{ ...input, lessonVersionId: secondVersionId },
+			cache
+		);
+		expect(scoreLessonMock).toHaveBeenCalledTimes(1);
+		expect(second.score.lessonVersionId).toBe(secondVersionId);
+	});
+
+	it('is a cache miss when subjectProfileId differs, even with identical lessonText', async () => {
+		const cache = fakeCache();
+		const scoreLessonMock = vi.fn().mockResolvedValue(validScoringResult());
+		const provider: ScoringProvider = { scoreLesson: scoreLessonMock };
+		const lessonText = 'Students debate two conflicting explanations for the data.';
+
+		await scoreLesson(
+			provider,
+			{ lessonVersionId: randomUUID(), lessonText, subjectProfileId: 'science-lab' },
+			cache
+		);
+		await scoreLesson(
+			provider,
+			{ lessonVersionId: randomUUID(), lessonText, subjectProfileId: 'history-essay' },
+			cache
+		);
+
+		expect(scoreLessonMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('is a cache miss when the prompt version differs, even with identical lessonText and subject', () => {
+		const hashA = computeScoringContentHash('text', 'science-lab', 'prompt-v1');
+		const hashB = computeScoringContentHash('text', 'science-lab', 'prompt-v2');
+		expect(hashA).not.toBe(hashB);
+	});
+
+	it('does not consult or write the cache when none is provided', async () => {
+		const scoreLessonMock = vi.fn().mockResolvedValue(validScoringResult());
+		const provider: ScoringProvider = { scoreLesson: scoreLessonMock };
+
+		await scoreLesson(provider, {
+			lessonVersionId: 'v1',
+			lessonText: 'x',
+			subjectProfileId: 'science-lab'
+		});
+		await scoreLesson(provider, {
+			lessonVersionId: 'v2',
+			lessonText: 'x',
+			subjectProfileId: 'science-lab'
+		});
+
+		expect(scoreLessonMock).toHaveBeenCalledTimes(2);
 	});
 });
 

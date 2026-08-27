@@ -97,3 +97,28 @@ function toScoringResult(
 		suggestions: raw.suggestions.map((s) => ({ id: randomUUID(), scoreId, ...s }))
 	});
 }
+
+/**
+ * Re-stamps a cached `ScoringResult` (prompts.txt Prompt P5) with fresh
+ * ids and the requesting call's own `lessonVersionId` — the cached
+ * *judgment* (scores, justifications, skill coverage, suggestions) is
+ * reused verbatim, but the returned record's identity belongs to this
+ * request, not the original call that produced the cache entry.
+ */
+export function restampScoringResult(
+	cached: ScoringResult,
+	lessonVersionId: string
+): ScoringResult {
+	const scoreId = randomUUID();
+
+	return ScoringResultSchema.parse({
+		score: {
+			...cached.score,
+			id: scoreId,
+			lessonVersionId,
+			createdAt: new Date().toISOString()
+		},
+		skillCoverage: cached.skillCoverage.map((entry) => ({ ...entry, id: randomUUID(), scoreId })),
+		suggestions: cached.suggestions.map((s) => ({ ...s, id: randomUUID(), scoreId }))
+	});
+}

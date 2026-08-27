@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { scoreWithLLM, type CreateMessageFn } from './llmScoringCore';
+import { restampScoringResult, scoreWithLLM, type CreateMessageFn } from './llmScoringCore';
 import { SCORING_PROMPT_VERSION } from './scoringPrompt';
 import { ScoringError } from './ScoringProvider';
 import { getSubjectProfile } from '$lib/domain/subjectProfiles';
@@ -63,6 +63,34 @@ describe('scoreWithLLM', () => {
 		const result = await score(createMessage);
 
 		expect(result.score.promptVersion).toBe(SCORING_PROMPT_VERSION);
+	});
+});
+
+describe('restampScoringResult (prompts.txt Prompt P5)', () => {
+	it('keeps the cached judgment but assigns fresh ids and the caller-supplied lessonVersionId', async () => {
+		const createMessage: CreateMessageFn = vi.fn().mockResolvedValue(validRawOutputJson());
+		const cached = await score(createMessage, randomUUID());
+		const newLessonVersionId = randomUUID();
+
+		const restamped = restampScoringResult(cached, newLessonVersionId);
+
+		expect(restamped.score.lessonVersionId).toBe(newLessonVersionId);
+		expect(restamped.score.id).not.toBe(cached.score.id);
+		expect(restamped.score.dialogueScore).toBe(cached.score.dialogueScore);
+		expect(restamped.score.dialogueJustification).toBe(cached.score.dialogueJustification);
+		expect(restamped.score.modelId).toBe(cached.score.modelId);
+		expect(restamped.score.promptVersion).toBe(cached.score.promptVersion);
+
+		expect(restamped.skillCoverage).toHaveLength(cached.skillCoverage.length);
+		expect(restamped.skillCoverage.every((entry) => entry.scoreId === restamped.score.id)).toBe(
+			true
+		);
+		expect(
+			restamped.skillCoverage.every(
+				(entry, i) =>
+					entry.skill === cached.skillCoverage[i].skill && entry.id !== cached.skillCoverage[i].id
+			)
+		).toBe(true);
 	});
 
 	it('strips a ```json code fence before parsing', async () => {

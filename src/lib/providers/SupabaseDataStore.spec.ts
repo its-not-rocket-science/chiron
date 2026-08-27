@@ -9,4 +9,10 @@ describe('SupabaseDataStore', () => {
 		expect(store.isConfigured).toBe(false);
 		await expect(store.ping()).resolves.toBe(false);
 	});
+
+	it('the scoring cache is a safe no-op when unconfigured (prompts.txt Prompt P5)', async () => {
+		const store = new SupabaseDataStore();
+		await expect(store.getCachedScore('some-hash')).resolves.toBeNull();
+		await expect(store.saveCachedScore('some-hash', {} as never)).resolves.toBeUndefined();
+	});
 });

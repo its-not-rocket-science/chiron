@@ -5,6 +5,7 @@ import type { RequestHandler } from './$types';
 import { scoreLesson, UnknownSubjectProfileError } from '$lib/domain/scoreLesson';
 import { DeepSeekScoringProvider } from '$lib/providers/DeepSeekScoringProvider';
 import { ScoringError } from '$lib/providers/ScoringProvider';
+import { SupabaseDataStore } from '$lib/providers/SupabaseDataStore';
 import { checkRateLimit } from '$lib/server/rateLimit';
 
 const RequestBodySchema = z.object({
@@ -21,11 +22,14 @@ const RATE_LIMIT = { requests: 15, windowMs: 10 * 60 * 1000 };
  * the three-pillar rubric (docs/ARCHITECTURE.md Section 5). This one
  * endpoint serves both the initial score and every subsequent
  * revise-and-resubmit — the caller compares the returned score against
- * whatever it got last time to render the before/after view; nothing is
- * persisted server-side yet (that lands with accounts/library in
- * Prompt 8). Reachable without signing in, and each call costs real LLM
- * API spend, so it's rate-limited per IP (Prompt 11, Postgres-backed
- * since Prompt 31 — see src/lib/server/rateLimit.ts).
+ * whatever it got last time to render the before/after view. No
+ * *lesson* is persisted here (that's a separate, explicit, authenticated
+ * step — `POST /api/lessons`); the only thing this endpoint writes is
+ * the content-addressed scoring cache (prompts.txt Prompt P5, see
+ * `scoreLesson()`), which has no owner and isn't part of anyone's
+ * library. Reachable without signing in, and each call costs real LLM
+ * API spend on a cache miss, so it's rate-limited per IP (Prompt 11,
+ * Postgres-backed since Prompt 31 — see src/lib/server/rateLimit.ts).
  */
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const rateLimit = await checkRateLimit(
@@ -59,11 +63,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 	try {
 		const provider = new DeepSeekScoringProvider();
-		const result = await scoreLesson(provider, {
-			lessonVersionId: lessonVersionId ?? randomUUID(),
-			lessonText,
-			subjectProfileId
-		});
+		const cache = new SupabaseDataStore();
+		const result = await scoreLesson(
+			provider,
+			{
+				lessonVersionId: lessonVersionId ?? randomUUID(),
+				lessonText,
+				subjectProfileId
+			},
+			cache
+		);
 		return json(result);
 	} catch (err) {
 		if (err instanceof UnknownSubjectProfileError) {

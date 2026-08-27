@@ -1812,3 +1812,70 @@ about what the data can and can't establish); this ADR is the
 split already established for the sibling metric.
 
 ---
+
+## ADR-027: A byte-identical resubmission still creates a new saved-lesson row — `save_lesson` is unchanged by the scoring cache
+
+**Date:** 2026-08-27
+**Status:** Accepted
+
+**Decision:** The scoring cache added for `prompts.txt` Prompt P5
+(`scoring_cache`, keyed by a hash of lessonText + subjectProfileId +
+`SCORING_PROMPT_VERSION`) sits entirely in front of the LLM call, inside
+`scoreLesson()`. It changes nothing about what happens when a teacher
+explicitly saves a lesson: `POST /api/lessons` → the `save_lesson` RPC
+still unconditionally inserts a new `lessons` row, a new
+`lesson_versions` row, and a new `scores` row every time it's called —
+identical content included, whether the score behind it came from the
+cache or a fresh call.
+
+**Why:** Prompt P5 asked this to be an explicit decision, not an
+implicit one: should a byte-identical resubmission still create a new
+version row, or be treated as a no-op? Checking what `save_lesson`
+actually does first (as the prompt also asked) found something worth
+recording plainly, because no existing doc states it: there is no
+"append a version to an existing saved lesson" code path in this app at
+all. `save_lesson` always does `insert into public.lessons (...)` and
+generates a brand-new `lesson_id`/`version_id`/`score_id` on every call,
+regardless of whether a similar or identical lesson was saved before.
+ADR-007's "revise-and-resubmit creates a new LessonVersion" describes
+the client-side scoring loop only (`/api/lessons/score`, compared with
+`compareScores` in memory) — Prompt 8 shipped "Save creates an
+independent library entry," never "Save appends a version to a lesson
+you already saved." `lesson_versions.version_number` is hardcoded to
+`1` in every `save_lesson` call today, which is the same fact from a
+different angle.
+
+Given that, "should a resubmission be a no-op instead of a new version
+row" isn't actually answerable at the `save_lesson` layer as it exists —
+there's no existing lesson identity for a resubmission to attach to or
+be deduplicated against. Making Save a no-op on identical content would
+mean inventing that identity (linking separate Save actions to one
+lesson, choosing what counts as "the same lesson" across saves) — a
+real, separate feature, not a side effect of adding a cache. Per Prompt
+P5's own instruction not to change existing version-creation behavior
+for its own sake, `save_lesson` is left untouched.
+
+**Alternatives considered:**
+
+- Detect a content-hash match against the caller's own most recent
+  saved lesson and skip the insert: rejected — "most recent saved
+  lesson" isn't a defined concept yet either (the library has no
+  ordering/identity linking saves together), and inventing one here
+  would be scope creep on a caching prompt.
+- Dedupe at the `scores` table level (reuse an existing `scores` row
+  instead of inserting a new one when content matches): rejected — the
+  `scoring_cache` table already serves that purpose for the LLM-call
+  cost, without touching the `scores` table's existing 1:1 relationship
+  with `lesson_versions` (`unique` on `lesson_version_id`), which
+  several RLS policies and the `save_lesson` function body currently
+  assume.
+
+**Consequences:** A teacher can save the exact same lesson text twice
+and get two separate library entries, exactly as before this prompt.
+The scoring cache only ever saves LLM spend on the scoring call itself,
+never lesson-row count. If a real "revise an existing saved lesson
+in place" feature is built later, it should make its own explicit
+decision about resubmission semantics — this ADR doesn't pre-empt that,
+it just records why P5 didn't attempt it.
+
+---
