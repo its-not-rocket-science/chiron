@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { subjectProfiles } from '$lib/domain/subjectProfiles';
+	import { normalizeStructuredLesson } from '$lib/domain/structuredLessonInput';
 
 	interface Props {
 		lessonText: string;
@@ -26,6 +27,16 @@
 	let fileInput: HTMLInputElement | undefined = $state();
 	let source = $state<'paste' | 'upload'>('paste');
 
+	// prompts.txt Prompt P3: an alternative structured input mode, toggled
+	// alongside the existing single free-text mode — not a replacement.
+	// Uploaded files still populate the single-block `lessonText` exactly
+	// as before, so a successful upload switches back to free-text mode.
+	let mode = $state<'freeText' | 'structured'>('freeText');
+	let objectives = $state('');
+	let teacherScript = $state('');
+	let studentActivities = $state('');
+	let assessment = $state('');
+
 	async function handleFileChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
@@ -49,6 +60,7 @@
 			lessonText = body.text;
 			uploadStatus = 'idle';
 			source = 'upload';
+			mode = 'freeText';
 		} catch {
 			uploadStatus = 'error';
 			uploadError = 'Something went wrong reading that file. Please try again.';
@@ -59,10 +71,27 @@
 
 	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (!lessonText.trim() || !subjectProfileId) return;
-		onSubmit({ lessonText, subjectProfileId, source });
+
+		const text =
+			mode === 'structured'
+				? normalizeStructuredLesson({ objectives, teacherScript, studentActivities, assessment })
+				: lessonText;
+
+		if (!structuredHasContent && mode === 'structured') return;
+		if (!text.trim() || !subjectProfileId) return;
+
+		lessonText = text;
+		onSubmit({ lessonText: text, subjectProfileId, source });
 	}
 
+	const structuredHasContent = $derived(
+		Boolean(
+			objectives.trim() || teacherScript.trim() || studentActivities.trim() || assessment.trim()
+		)
+	);
+	const canSubmit = $derived(
+		mode === 'structured' ? structuredHasContent : Boolean(lessonText.trim())
+	);
 	const isBusy = $derived(disabled || uploadStatus === 'uploading');
 </script>
 
@@ -83,20 +112,95 @@
 		</select>
 	</div>
 
-	<div>
-		<label for="lesson-text" class="mb-1 block text-sm font-medium text-slate-700">
-			Lesson plan
+	<fieldset class="flex items-center gap-4">
+		<legend class="mb-1 block text-sm font-medium text-slate-700">Lesson input mode</legend>
+		<label class="flex items-center gap-1.5 text-sm text-slate-700">
+			<input type="radio" name="input-mode" value="freeText" bind:group={mode} disabled={isBusy} />
+			Single text block
 		</label>
-		<textarea
-			id="lesson-text"
-			bind:value={lessonText}
-			disabled={isBusy}
-			oninput={() => (source = 'paste')}
-			rows="12"
-			placeholder="Paste or type your lesson plan here..."
-			class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
-		></textarea>
-	</div>
+		<label class="flex items-center gap-1.5 text-sm text-slate-700">
+			<input
+				type="radio"
+				name="input-mode"
+				value="structured"
+				bind:group={mode}
+				disabled={isBusy}
+			/>
+			Structured fields
+		</label>
+	</fieldset>
+
+	{#if mode === 'freeText'}
+		<div>
+			<label for="lesson-text" class="mb-1 block text-sm font-medium text-slate-700">
+				Lesson plan
+			</label>
+			<textarea
+				id="lesson-text"
+				bind:value={lessonText}
+				disabled={isBusy}
+				oninput={() => (source = 'paste')}
+				rows="12"
+				placeholder="Paste or type your lesson plan here..."
+				class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
+			></textarea>
+		</div>
+	{:else}
+		<div class="flex flex-col gap-4">
+			<div>
+				<label for="objectives" class="mb-1 block text-sm font-medium text-slate-700">
+					Learning Objectives
+				</label>
+				<textarea
+					id="objectives"
+					bind:value={objectives}
+					disabled={isBusy}
+					oninput={() => (source = 'paste')}
+					rows="3"
+					class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
+				></textarea>
+			</div>
+			<div>
+				<label for="teacher-script" class="mb-1 block text-sm font-medium text-slate-700">
+					Teacher Script / Key Questions
+				</label>
+				<textarea
+					id="teacher-script"
+					bind:value={teacherScript}
+					disabled={isBusy}
+					oninput={() => (source = 'paste')}
+					rows="3"
+					class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
+				></textarea>
+			</div>
+			<div>
+				<label for="student-activities" class="mb-1 block text-sm font-medium text-slate-700">
+					Student Activities
+				</label>
+				<textarea
+					id="student-activities"
+					bind:value={studentActivities}
+					disabled={isBusy}
+					oninput={() => (source = 'paste')}
+					rows="3"
+					class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
+				></textarea>
+			</div>
+			<div>
+				<label for="assessment" class="mb-1 block text-sm font-medium text-slate-700">
+					Assessment / Exit Tickets
+				</label>
+				<textarea
+					id="assessment"
+					bind:value={assessment}
+					disabled={isBusy}
+					oninput={() => (source = 'paste')}
+					rows="3"
+					class="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60"
+				></textarea>
+			</div>
+		</div>
+	{/if}
 
 	<div>
 		<label for="lesson-file" class="mb-1 block text-sm font-medium text-slate-700">
@@ -121,7 +225,7 @@
 
 	<button
 		type="submit"
-		disabled={isBusy || !lessonText.trim()}
+		disabled={isBusy || !canSubmit}
 		class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		{submitLabel}
