@@ -46,6 +46,7 @@ async function createLessonFixture(
 		p_mentoring_score: 1,
 		p_mentoring_justification: 'x',
 		p_model_id: 'test-model',
+		p_prompt_version: 'test-prompt-v1',
 		p_skill_coverage: ctSkillIds.map((skill) => ({
 			skill,
 			covered: false,
