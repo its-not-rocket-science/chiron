@@ -16,6 +16,7 @@
 			{#if data.user}
 				<a href={resolve('/practice')} class="text-slate-600 hover:text-slate-900">Practice</a>
 				<a href={resolve('/lessons')} class="text-slate-600 hover:text-slate-900">My lessons</a>
+				<a href={resolve('/dashboard')} class="text-slate-600 hover:text-slate-900">Dashboard</a>
 				<a href={resolve('/library')} class="text-slate-600 hover:text-slate-900">Library</a>
 				<a href={resolve('/account/org')} class="text-slate-600 hover:text-slate-900">My org</a>
 				<span class="text-slate-400">{data.user.email}</span>
