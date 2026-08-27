@@ -25,7 +25,7 @@ import {
  * model, not what we asked it to do) and independent of git history
  * (a report should be self-describing without needing a commit lookup).
  */
-export const SCORING_PROMPT_VERSION = '2026-08-26-v2';
+export const SCORING_PROMPT_VERSION = '2026-08-26-v3';
 
 // ---------------------------------------------------------------------------
 // Raw model output — what the LLM actually produces. Deliberately lighter
@@ -115,8 +115,44 @@ export function buildSystemPrompt(subjectProfile: SubjectProfile): string {
 		'',
 		'For each CT skill, if the lesson text does not make it clear whether the skill is exercised, mark confidence as "low" rather than forcing a confident yes/no — and write the justification to match: a low-confidence entry should read as genuinely uncertain ("it\'s unclear whether...", "the lesson doesn\'t specify..."), not as a confident claim sitting next to a low-confidence label. Do not fabricate certainty in either the flag or the wording.',
 		'',
-		'Respond with ONLY a single JSON object — no markdown code fences, no commentary before or after — matching exactly this shape:',
+		buildFewShotExamples(),
+		'',
+		'Respond with ONLY a single JSON object — no markdown code fences, no commentary before or after — matching exactly this shape (the full shape below, not the abbreviated worked-example judgments above — those omitted skillCoverage and suggestions only to stay short, your real response must include both in full):',
 		JSON_SHAPE_DESCRIPTION
+	].join('\n');
+}
+
+/**
+ * Three original, synthetic worked examples (weak/average/strong) —
+ * `prompts.txt` Prompt P1's fix for a zero-shot prompt producing
+ * inconsistent scoring across similarly-strong lessons. Each pairs a
+ * short lesson excerpt with an ABBREVIATED scoring judgment (pillar
+ * scores + one-line justifications only, not the full six-skill/
+ * suggestions payload `JSON_SHAPE_DESCRIPTION` already specifies in
+ * full) — these exist to calibrate scoring *judgment*, not to serve as
+ * a second, competing template for the exact output shape. Written
+ * directly for this prompt, not copied from any external source or
+ * from any of the three canonical Phase 2A practice cases (a
+ * deliberately distinct, unrelated set of examples).
+ */
+export function buildFewShotExamples(): string {
+	return [
+		'Three worked examples follow, each showing a lesson excerpt and the scoring judgment it should receive. These are reference examples only — never the lesson to actually score. The real submission to score is provided afterward, in the next message, inside <lesson_text> delimiters, clearly separate from everything below.',
+		'',
+		'<worked_example_1 label="weak">',
+		'Excerpt: "The teacher lectures for the full period on the water cycle using a slideshow. Students copy notes silently. No questions are asked to the class, and no activity requires students to apply the material."',
+		'Judgment: { "dialogueScore": 0, "dialogueJustification": "One-directional lecture only; no structured exchange of any kind.", "authenticityScore": 0, "authenticityJustification": "Purely abstract content copied from slides; no real-world tie-in or task.", "mentoringScore": 0, "mentoringJustification": "No individualized coaching, modeling, or feedback of any kind." }',
+		'</worked_example_1>',
+		'',
+		'<worked_example_2 label="average">',
+		'Excerpt: "Students read a case study about a local river\'s declining fish population and discuss possible causes in small groups for fifteen minutes of the sixty-minute lesson. The rest of the lesson is a teacher-led explanation of nitrogen cycling, with the teacher circulating briefly during group work to check on progress."',
+		'Judgment: { "dialogueScore": 2, "dialogueJustification": "Small-group discussion is real and deliberate but occupies only part of the lesson.", "authenticityScore": 2, "authenticityJustification": "A realistic scenario grounds the task, but it is simplified and mostly used as a discussion prompt rather than an open investigation.", "mentoringScore": 1, "mentoringJustification": "Brief circulating check-ins occur, but feedback is not individualized or sustained." }',
+		'</worked_example_2>',
+		'',
+		'<worked_example_3 label="strong">',
+		'Excerpt: "Students spend the entire lesson in a structured Socratic seminar debating whether a proposed dam should be built, using real environmental impact data with genuine trade-offs and no single correct answer. The teacher circulates throughout, asking individual students to justify specific claims and modeling how to weigh conflicting evidence."',
+		'Judgment: { "dialogueScore": 3, "dialogueJustification": "Structured Socratic dialogue is the primary engine of the entire lesson.", "authenticityScore": 3, "authenticityJustification": "A genuine, messy real-world problem with real trade-offs and no predetermined answer is the central task throughout.", "mentoringScore": 3, "mentoringJustification": "Sustained, individualized coaching (justifying specific claims, modeling evidence-weighing) runs throughout the lesson." }',
+		'</worked_example_3>'
 	].join('\n');
 }
 

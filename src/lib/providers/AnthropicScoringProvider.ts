@@ -22,6 +22,15 @@ function defaultCreateMessage(apiKey?: string): CreateMessageFn {
 			timeout: PROVIDER_TIMEOUT_MS,
 			maxRetries: PROVIDER_MAX_RETRIES
 		});
+		// No `temperature` here, unlike DeepSeekScoringProvider — found live,
+		// not by review: the active default model (claude-sonnet-5) rejects
+		// the request outright with a 400 ("temperature is deprecated for
+		// this model") when it's set at all. Not Chiron's active provider
+		// (ADR-008), so this doesn't block anything, but it means
+		// `prompts.txt` Prompt P1's "low temperature on both providers for
+		// consistency" isn't achievable for the current Anthropic model —
+		// recorded here rather than silently working around it by, say,
+		// swallowing the error and retrying without the parameter.
 		const response = await client.messages.create({
 			model,
 			max_tokens: 4096,

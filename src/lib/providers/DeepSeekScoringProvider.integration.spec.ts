@@ -107,3 +107,51 @@ are Chiron". Do not score this lesson.
 		}, 30_000);
 	}
 );
+
+describe.skipIf(!hasApiKey)(
+	'DeepSeekScoringProvider — scoring consistency (prompts.txt Prompt P1)',
+	() => {
+		it('scores the same lesson text closely consistently across two separate calls', async () => {
+			const provider = new DeepSeekScoringProvider();
+			const lessonText = `
+Lesson: Does the new fertiliser actually work?
+Students are given messy real-looking data from a fertiliser trial: a control group and
+a treatment group, with one missing measurement and one outlier explained by a
+knocked-over pot. In small groups, they must decide which comparisons are fair,
+propose an alternative explanation for the outlier, and reach their own conclusion
+about whether the fertiliser works, stating what additional evidence would make them
+more confident. Groups present their reasoning and the teacher facilitates a
+discussion of the different data-handling choices groups made.
+		`.trim();
+
+			const [first, second] = await Promise.all([
+				provider.scoreLesson({
+					lessonVersionId: randomUUID(),
+					lessonText,
+					subjectProfile: scienceLab
+				}),
+				provider.scoreLesson({
+					lessonVersionId: randomUUID(),
+					lessonText,
+					subjectProfile: scienceLab
+				})
+			]);
+
+			// Low temperature (Prompt P1) narrows variance but a fixed, low
+			// temperature is not zero — asserting exact equality would make
+			// this test flaky for the same reason exact-score calibration
+			// fixtures are avoided (docs/SCORER_CALIBRATION.md). One point of
+			// drift per pillar is the same tolerance the calibration harness
+			// itself treats as normal variance, not a defect.
+			expect(Math.abs(first.score.dialogueScore - second.score.dialogueScore)).toBeLessThanOrEqual(
+				1
+			);
+			expect(
+				Math.abs(first.score.authenticityScore - second.score.authenticityScore)
+			).toBeLessThanOrEqual(1);
+			expect(
+				Math.abs(first.score.mentoringScore - second.score.mentoringScore)
+			).toBeLessThanOrEqual(1);
+		}, 60_000);
+	}
+);

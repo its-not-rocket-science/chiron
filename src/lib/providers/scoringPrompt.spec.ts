@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSystemPrompt } from './scoringPrompt';
+import { buildFewShotExamples, buildSystemPrompt } from './scoringPrompt';
 import { subjectProfiles, getSubjectProfile } from '$lib/domain/subjectProfiles';
 
 const scienceLab = getSubjectProfile('science-lab')!;
@@ -75,5 +75,43 @@ describe('buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt(scienceLab);
 		expect(prompt).toMatch(/prefer changing the intellectual task itself/);
 		expect(prompt).toMatch(/not as a default first suggestion/);
+	});
+
+	it('includes all three few-shot worked examples (weak/average/strong) (prompts.txt Prompt P1)', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toContain('<worked_example_1 label="weak">');
+		expect(prompt).toContain('<worked_example_2 label="average">');
+		expect(prompt).toContain('<worked_example_3 label="strong">');
+		expect(prompt).toMatch(/"dialogueScore": 0/);
+		expect(prompt).toMatch(/"dialogueScore": 3/);
+	});
+
+	it('clearly distinguishes the worked examples from the real lesson to score', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/reference examples only — never the lesson to actually score/);
+	});
+
+	it('tells the model the worked examples are abbreviated, not a competing output shape', () => {
+		const prompt = buildSystemPrompt(scienceLab);
+		expect(prompt).toMatch(/not the abbreviated worked-example judgments above/);
+	});
+});
+
+describe('buildFewShotExamples', () => {
+	it('is a fixed set of examples with no per-call parameters', () => {
+		expect(buildFewShotExamples()).toBe(buildFewShotExamples());
+	});
+
+	it('every example pairs an excerpt with a judgment containing all three pillar scores', () => {
+		const examples = buildFewShotExamples();
+		for (const label of ['weak', 'average', 'strong']) {
+			const block = examples.match(
+				new RegExp(`<worked_example_\\d label="${label}">([\\s\\S]*?)</worked_example_\\d>`)
+			)?.[1];
+			expect(block, `missing ${label} example`).toBeDefined();
+			expect(block).toMatch(/"dialogueScore":\s*\d/);
+			expect(block).toMatch(/"authenticityScore":\s*\d/);
+			expect(block).toMatch(/"mentoringScore":\s*\d/);
+		}
 	});
 });

@@ -25,6 +25,11 @@ function defaultCreateMessage(apiKey?: string): CreateMessageFn {
 		const response = await client.chat.completions.create({
 			model,
 			max_tokens: 4096,
+			// Low, not zero — scoring is a judgment task, not literal
+			// retrieval, so some model-to-model variation is expected and
+			// fine, but reproducibility matters more here than creative
+			// variation (prompts.txt Prompt P1).
+			temperature: 0.2,
 			// DeepSeek's JSON mode guarantees syntactically valid JSON; the exact
 			// shape is still enforced by RawScoringOutputSchema after parsing.
 			response_format: { type: 'json_object' },
