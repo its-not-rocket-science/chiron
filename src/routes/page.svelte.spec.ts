@@ -10,7 +10,7 @@ afterEach(() => {
 // Matches what root +layout.server.ts / +page.server.ts would provide for a
 // signed-out visitor — these component tests render the page directly, so
 // they supply it by hand rather than going through the real load functions.
-const signedOutData = { session: null, user: null, membership: null };
+const signedOutData = { session: null, user: null, membership: null, hasScoredLessons: true };
 
 function scoringResultJson(
 	overrides: {
@@ -188,7 +188,8 @@ describe('lesson analyzer — input to score to revise loop', () => {
 			data: {
 				session: null,
 				user: { id: 'user-1', email: 'teacher@example.com' },
-				membership: null
+				membership: null,
+				hasScoredLessons: true
 			},
 			params: {},
 			form: null
@@ -209,5 +210,65 @@ describe('lesson analyzer — input to score to revise loop', () => {
 			source: 'paste',
 			lessonText: 'Students collect real data.'
 		});
+	});
+});
+
+describe('examples banner (Prompt E4)', () => {
+	afterEach(() => {
+		localStorage.clear();
+	});
+
+	it('shows the examples banner for a first-time signed-in user (hasScoredLessons === false)', async () => {
+		const screen = await render(Page, {
+			data: {
+				session: null,
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				membership: null,
+				hasScoredLessons: false
+			},
+			params: {},
+			form: null
+		});
+
+		await expect.element(screen.getByText('See example lessons')).toBeVisible();
+	});
+
+	it('does not show the examples banner once the user has scored a lesson before', async () => {
+		const screen = await render(Page, {
+			data: {
+				session: null,
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				membership: null,
+				hasScoredLessons: true
+			},
+			params: {},
+			form: null
+		});
+
+		await expect.element(screen.getByText('Chiron')).toBeVisible();
+		expect(screen.getByText('See example lessons').query()).toBeNull();
+	});
+
+	it('does not show the examples banner for a signed-out visitor', async () => {
+		const screen = await render(Page, { data: signedOutData, params: {}, form: null });
+		expect(screen.getByText('See example lessons').query()).toBeNull();
+	});
+
+	it('dismissing the banner hides it and the dismissal persists across a re-render', async () => {
+		const data = {
+			session: null,
+			user: { id: 'user-1', email: 'teacher@example.com' },
+			membership: null,
+			hasScoredLessons: false
+		};
+
+		const screen = await render(Page, { data, params: {}, form: null });
+		await expect.element(screen.getByText('See example lessons')).toBeVisible();
+
+		await screen.getByRole('button', { name: 'Dismiss' }).click();
+		expect(screen.getByText('See example lessons').query()).toBeNull();
+
+		const secondRender = await render(Page, { data, params: {}, form: null });
+		expect(secondRender.getByText('See example lessons').query()).toBeNull();
 	});
 });

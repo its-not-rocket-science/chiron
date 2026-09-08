@@ -39,7 +39,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			 profiles_public(display_name),
 			 lesson_versions!lessons_current_version_fk(scores(dialogue_score, authenticity_score, mentoring_score))`
 		)
-		.in('visibility', ['org-shared', 'public-template']);
+		.in('visibility', ['org-shared', 'public-template'])
+		// System-example onboarding lessons (Prompt E2/E3) are a separate,
+		// clearly-labeled category (see /examples, Prompt E4) — never mixed
+		// into this ordinary-user browsing view, which also keeps
+		// `owner_id`/`profiles_public` here always representing a real user.
+		.eq('origin', 'user');
 
 	if (filters.subjectProfileId) query = query.eq('subject_profile_id', filters.subjectProfileId);
 	if (filters.gradeLevel) query = query.eq('grade_level', filters.gradeLevel);

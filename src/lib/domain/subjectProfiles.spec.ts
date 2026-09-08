@@ -3,9 +3,17 @@ import { ctSkills } from './taxonomy';
 import { getSubjectProfile, subjectProfiles } from './subjectProfiles';
 
 describe('subjectProfiles', () => {
-	it('includes the two launch profiles: science-lab and history-essay', () => {
+	it('includes all five profiles', () => {
 		const ids = subjectProfiles.map((p) => p.id);
-		expect(ids).toEqual(expect.arrayContaining(['science-lab', 'history-essay']));
+		expect(ids).toEqual(
+			expect.arrayContaining([
+				'science-lab',
+				'history-essay',
+				'journalism',
+				'ela-argumentative-writing',
+				'civics-current-events'
+			])
+		);
 	});
 
 	it('has unique profile ids', () => {
@@ -35,6 +43,20 @@ describe('subjectProfiles', () => {
 		expect(scienceLab).toBeDefined();
 		expect(historyEssay).toBeDefined();
 		expect(scienceLab!.skillEmphasis).not.toEqual(historyEssay!.skillEmphasis);
+	});
+
+	it('journalism and ela-argumentative-writing emphasize different skills (suggestions should genuinely differ)', () => {
+		const journalism = getSubjectProfile('journalism');
+		const ela = getSubjectProfile('ela-argumentative-writing');
+		expect(journalism).toBeDefined();
+		expect(ela).toBeDefined();
+		expect(journalism!.skillEmphasis).not.toEqual(ela!.skillEmphasis);
+	});
+
+	it('every profile id is unique across all five, and every skillEmphasis entry is unique per profile', () => {
+		for (const profile of subjectProfiles) {
+			expect(new Set(profile.skillEmphasis).size).toBe(profile.skillEmphasis.length);
+		}
 	});
 
 	it('getSubjectProfile returns undefined for an unknown id rather than throwing', () => {

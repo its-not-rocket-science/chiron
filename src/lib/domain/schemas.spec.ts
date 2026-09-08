@@ -19,7 +19,7 @@ const uuid = () => randomUUID();
 
 interface LessonFixtureOverrides {
 	id?: string;
-	ownerId?: string;
+	ownerId?: string | null;
 	orgId?: string | null;
 	title?: string;
 	subjectProfileId?: string;
@@ -30,6 +30,11 @@ interface LessonFixtureOverrides {
 	updatedAt?: string;
 	currentVersionId?: string | null;
 	copiedFromLessonId?: string | null;
+	origin?: string;
+	attributionName?: string | null;
+	attributionUrl?: string | null;
+	license?: string | null;
+	licenseNote?: string | null;
 }
 
 function validLesson(overrides: LessonFixtureOverrides = {}) {
@@ -46,8 +51,26 @@ function validLesson(overrides: LessonFixtureOverrides = {}) {
 		updatedAt: now(),
 		currentVersionId: null,
 		copiedFromLessonId: null,
+		origin: 'user',
+		attributionName: null,
+		attributionUrl: null,
+		license: null,
+		licenseNote: null,
 		...overrides
 	};
+}
+
+function validSystemExampleLesson(overrides: LessonFixtureOverrides = {}) {
+	return validLesson({
+		ownerId: null,
+		visibility: 'public-template',
+		origin: 'system_example',
+		attributionName: 'OpenSciEd',
+		attributionUrl: 'https://openscied.org/instructional-materials/6-2-thermal-energy/',
+		license: 'CC-BY-4.0',
+		licenseNote: null,
+		...overrides
+	});
 }
 
 function validScore(overrides: Partial<ReturnType<typeof baseScore>> = {}) {
@@ -146,6 +169,65 @@ describe('LessonSchema', () => {
 
 	it('rejects an unknown visibility value', () => {
 		expect(() => LessonSchema.parse(validLesson({ visibility: 'secret' }))).toThrow();
+	});
+
+	it('accepts a valid system-example lesson (no owner, full attribution)', () => {
+		expect(() => LessonSchema.parse(validSystemExampleLesson())).not.toThrow();
+	});
+
+	it('rejects a system-example lesson that has an owner', () => {
+		expect(() => LessonSchema.parse(validSystemExampleLesson({ ownerId: uuid() }))).toThrow(
+			/no owner/
+		);
+	});
+
+	it('rejects a user lesson with no owner', () => {
+		expect(() => LessonSchema.parse(validLesson({ ownerId: null }))).toThrow(/no owner/);
+	});
+
+	it('rejects a system-example lesson missing attributionName, attributionUrl, or license', () => {
+		expect(() => LessonSchema.parse(validSystemExampleLesson({ attributionName: null }))).toThrow(
+			/Attribution fields.*required/
+		);
+		expect(() => LessonSchema.parse(validSystemExampleLesson({ attributionUrl: null }))).toThrow(
+			/Attribution fields.*required/
+		);
+		expect(() => LessonSchema.parse(validSystemExampleLesson({ license: null }))).toThrow(
+			/Attribution fields.*required/
+		);
+	});
+
+	it('allows a user lesson to carry inherited attribution (a "duplicate and edit" copy of a system example)', () => {
+		expect(() =>
+			LessonSchema.parse(
+				validLesson({
+					attributionName: 'OpenSciEd',
+					attributionUrl: 'https://openscied.org/instructional-materials/6-2-thermal-energy/',
+					license: 'CC-BY-4.0',
+					licenseNote: 'Copied from a system example.'
+				})
+			)
+		).not.toThrow();
+	});
+
+	it('allows an ordinary user lesson with no attribution at all', () => {
+		expect(() => LessonSchema.parse(validLesson())).not.toThrow();
+	});
+
+	it('rejects an unknown license value', () => {
+		expect(() =>
+			LessonSchema.parse(validSystemExampleLesson({ license: 'All-Rights-Reserved' }))
+		).toThrow();
+	});
+
+	it('rejects a non-https attributionUrl', () => {
+		expect(() =>
+			LessonSchema.parse(validSystemExampleLesson({ attributionUrl: 'http://example.com' }))
+		).toThrow();
+	});
+
+	it('rejects an unknown origin value', () => {
+		expect(() => LessonSchema.parse(validLesson({ origin: 'admin_curated' }))).toThrow();
 	});
 });
 

@@ -94,7 +94,7 @@ const JSON_SHAPE_DESCRIPTION = `{
  * different subject profiles must produce visibly different prompts.
  */
 export function buildSystemPrompt(subjectProfile: SubjectProfile): string {
-	return [
+	const parts = [
 		'You are Chiron, scoring a teacher lesson plan against a peer-reviewed critical-thinking instructional framework (Abrami et al., 2015). Apply ONLY the framework below — no other rubric, no personal opinion about what makes a "good" lesson beyond it.',
 		'',
 		taxonomyGroundingText(),
@@ -111,6 +111,9 @@ export function buildSystemPrompt(subjectProfile: SubjectProfile): string {
 		`Subject context — this is a "${subjectProfile.name}" lesson: ${subjectProfile.description}`,
 		`Typical authentic-problem framings for this subject: ${subjectProfile.authenticProblemExamples.join('; ')}`,
 		`This subject's suggestions should lean on these CT skills where relevant: ${subjectProfile.skillEmphasis.join(', ')}`,
+		subjectProfile.lowAuthenticitySuggestionGuidance
+			? `When this subject's Authenticity pillar scores low, suggestions should ${subjectProfile.lowAuthenticitySuggestionGuidance}`
+			: null,
 		'',
 		'The subject context above is flavor and typical framing for suggestions only — it is never a scoring requirement or a second rubric. Score every pillar and skill strictly against the general rubric and taxonomy above; do not raise or lower any score merely because a lesson does or does not match one of the typical framings listed for this subject. A lesson can score highly without resembling any of those examples, and can score poorly despite resembling one.',
 		'',
@@ -128,7 +131,8 @@ export function buildSystemPrompt(subjectProfile: SubjectProfile): string {
 		'',
 		'Respond with ONLY a single JSON object — no markdown code fences, no commentary before or after — matching exactly this shape (the full shape below, not the abbreviated worked-example judgments above — those omitted skillCoverage and suggestions only to stay short, your real response must include both in full):',
 		JSON_SHAPE_DESCRIPTION
-	].join('\n');
+	];
+	return parts.filter((line): line is string => line !== null).join('\n');
 }
 
 /**

@@ -10,9 +10,40 @@
 	import HonestyNote from '$lib/components/HonestyNote.svelte';
 	import SaveLessonForm from '$lib/components/SaveLessonForm.svelte';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	// Prompt E4: an unobtrusive, dismissible pointer to the seeded example
+	// lessons for brand-new users — `hasScoredLessons === false` (not just
+	// falsy) is the actual first-time-user signal from +page.server.ts;
+	// `undefined` (signed-out visitors, and older tests' plain fixture
+	// data) never shows this banner. Dismissal is per-browser localStorage,
+	// not server state — a brand new device intentionally sees it again.
+	const EXAMPLES_BANNER_DISMISSED_KEY = 'chiron-examples-banner-dismissed';
+	let examplesBannerDismissed = $state(true);
+	onMount(() => {
+		if (!browser) return;
+		try {
+			examplesBannerDismissed = localStorage.getItem(EXAMPLES_BANNER_DISMISSED_KEY) === '1';
+		} catch {
+			// localStorage unavailable (private mode, blocked) — default to shown.
+			examplesBannerDismissed = false;
+		}
+	});
+	const showExamplesBanner = $derived(data.hasScoredLessons === false && !examplesBannerDismissed);
+
+	function dismissExamplesBanner() {
+		examplesBannerDismissed = true;
+		if (!browser) return;
+		try {
+			localStorage.setItem(EXAMPLES_BANNER_DISMISSED_KEY, '1');
+		} catch {
+			// best-effort only
+		}
+	}
 
 	type Phase = 'input' | 'loading' | 'results';
 
@@ -102,6 +133,26 @@
 			subject-specific suggestions for making it stronger.
 		</p>
 	</header>
+
+	{#if showExamplesBanner}
+		<div
+			class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+		>
+			<p>
+				New here? <a href={resolve('/examples')} class="font-medium underline"
+					>See example lessons</a
+				> to get a feel for how Chiron scores real, published lessons.
+			</p>
+			<button
+				type="button"
+				onclick={dismissExamplesBanner}
+				aria-label="Dismiss"
+				class="shrink-0 text-slate-400 hover:text-slate-600"
+			>
+				&times;
+			</button>
+		</div>
+	{/if}
 
 	{#if errorMessage}
 		<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{errorMessage}</p>

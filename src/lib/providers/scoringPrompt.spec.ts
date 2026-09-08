@@ -4,6 +4,8 @@ import { subjectProfiles, getSubjectProfile } from '$lib/domain/subjectProfiles'
 
 const scienceLab = getSubjectProfile('science-lab')!;
 const historyEssay = getSubjectProfile('history-essay')!;
+const journalism = getSubjectProfile('journalism')!;
+const elaArgumentativeWriting = getSubjectProfile('ela-argumentative-writing')!;
 
 describe('buildSystemPrompt', () => {
 	it('embeds the taxonomy and rubric grounding text', () => {
@@ -26,6 +28,27 @@ describe('buildSystemPrompt', () => {
 		for (const profile of subjectProfiles) {
 			expect(buildSystemPrompt(profile)).toContain(profile.name);
 		}
+	});
+
+	it('journalism vs. ela-argumentative-writing produce visibly different suggestion-flavor text', () => {
+		const journalismPrompt = buildSystemPrompt(journalism);
+		const elaPrompt = buildSystemPrompt(elaArgumentativeWriting);
+
+		expect(journalismPrompt).not.toBe(elaPrompt);
+		expect(journalismPrompt).toContain(journalism.authenticProblemExamples[0]);
+		expect(elaPrompt).toContain(elaArgumentativeWriting.authenticProblemExamples[0]);
+		expect(journalismPrompt).not.toContain(elaArgumentativeWriting.authenticProblemExamples[0]);
+		expect(elaPrompt).not.toContain(journalism.authenticProblemExamples[0]);
+	});
+
+	it('includes low-authenticity suggestion guidance only for profiles that define it', () => {
+		expect(journalism.lowAuthenticitySuggestionGuidance).toBeDefined();
+		expect(buildSystemPrompt(journalism)).toContain(journalism.lowAuthenticitySuggestionGuidance);
+
+		expect(scienceLab.lowAuthenticitySuggestionGuidance).toBeUndefined();
+		expect(buildSystemPrompt(scienceLab)).not.toMatch(
+			/Authenticity pillar scores low, suggestions should/
+		);
 	});
 
 	it('instructs the model to treat lesson text as data, not instructions', () => {

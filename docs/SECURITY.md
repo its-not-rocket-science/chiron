@@ -503,6 +503,36 @@ make on its own, not oversights to silently work around.
 
 ---
 
+## 10. Third-party content licensing (onboarding examples, `prompts-onboarding-examples.txt`)
+
+Three real, openly-licensed lesson plans are seeded as `origin = 'system_example'`
+lessons (migrations 0017/0018, `scripts/seed-onboarding-examples.ts`) so new
+users have something real to look at before submitting their own lesson. The
+full sourcing/verification process, and the process future examples must
+follow, is documented in `docs/CONTENT_LICENSING.md` — this section only
+flags the one open item that process doc surfaced.
+
+**Verification limitation, not a licensing problem:** the OpenSciEd source
+(science-lab example) was fetched and its CC BY 4.0 license confirmed
+directly, twice (at seeding, and again at this review). The two Library of
+Congress sources (history-essay, journalism examples) could not be fetched
+directly by either automated method available — Cloudflare's bot-check
+blocks every request, both a plain HTTP fetch and a real Chrome browser
+session, with no attempt made to defeat that check. Their public-domain
+status is corroborated instead: LOC's own published copyright policy
+(staff-authored classroom material is free of known copyright restrictions
+as US federal government work product) plus independent search-indexed
+descriptions of both pages' actual content, gathered and cross-checked
+across two separate fetch attempts in this same review (once at seeding
+time, once re-checked minutes later for this section) with consistent
+results — the direct live-page read itself was never achieved either time.
+This is a documented, human-approved judgment call (see
+`docs/CONTENT_LICENSING.md`), not a default — a genuine live-page read of
+both LOC sources by a human (or a differently-authenticated fetch path)
+would close this out completely and should happen when convenient.
+
+---
+
 ## Summary
 
 | Area               | Outcome                                                                                                             |

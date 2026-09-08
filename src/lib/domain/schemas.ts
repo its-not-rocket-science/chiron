@@ -52,10 +52,36 @@ export type Membership = z.infer<typeof MembershipSchema>;
 export const VisibilitySchema = z.enum(['private', 'org-shared', 'public-template']);
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
+/**
+ * Who this lesson belongs to. 'user' is every ordinary lesson a teacher
+ * creates or copies. 'system_example' is onboarding content Chiron itself
+ * seeds (Prompt E3) — never owned by a user, never editable by one, only
+ * ever written by a service-role seed script. Deliberately named
+ * `origin`, not `source` — `LessonVersionSchema.source` ('paste'/'upload')
+ * already uses that name for an unrelated concept on a different table.
+ */
+export const LessonOriginSchema = z.enum(['user', 'system_example']);
+export type LessonOrigin = z.infer<typeof LessonOriginSchema>;
+
+/**
+ * Extend this enum, never switch to free text — the UI renders a license
+ * badge per value (Prompt E4) and needs to do that without string-matching
+ * an arbitrary string.
+ */
+export const LessonLicenseSchema = z.enum([
+	'CC-BY-4.0',
+	'CC-BY-SA-4.0',
+	'Public-Domain-US-Govt',
+	'Public-Domain-Expired',
+	'Other-Permission-Granted'
+]);
+export type LessonLicense = z.infer<typeof LessonLicenseSchema>;
+
 export const LessonSchema = z
 	.object({
 		id: id(),
-		ownerId: id(),
+		/** Null only for a `system_example` lesson — see `origin`. */
+		ownerId: id().nullable(),
 		orgId: id().nullable(),
 		title: z.string().min(1),
 		subjectProfileId: z.string().min(1),
@@ -66,12 +92,47 @@ export const LessonSchema = z
 		updatedAt: timestamp(),
 		currentVersionId: id().nullable(),
 		/** Set when this lesson was created via "save a copy" in the shared library. */
-		copiedFromLessonId: id().nullable()
+		copiedFromLessonId: id().nullable(),
+		origin: LessonOriginSchema,
+		/**
+		 * Required when origin = 'system_example'. Not forbidden for a
+		 * 'user' lesson — a "duplicate and edit" copy of a system-example
+		 * lesson carries the original's attribution forward (CC BY-style
+		 * licenses require attribution to survive into a derivative); an
+		 * ordinary, never-copied user lesson simply never has this set.
+		 */
+		attributionName: z.string().min(1).nullable(),
+		attributionUrl: z.url().nullable(),
+		license: LessonLicenseSchema.nullable(),
+		/** Free-text qualifier, e.g. "adapted from the public overview page." Optional even for a system example. */
+		licenseNote: z.string().nullable()
 	})
 	.refine((lesson) => !(lesson.visibility === 'org-shared' && lesson.orgId === null), {
 		message: 'A lesson with no org cannot be org-shared',
 		path: ['visibility']
-	});
+	})
+	.refine((lesson) => (lesson.origin === 'system_example') === (lesson.ownerId === null), {
+		message: 'A system-example lesson must have no owner; a user lesson must have an owner',
+		path: ['ownerId']
+	})
+	.refine(
+		(lesson) =>
+			lesson.origin !== 'system_example' ||
+			(lesson.attributionName !== null &&
+				lesson.attributionUrl !== null &&
+				lesson.license !== null),
+		{
+			message: 'Attribution fields (name, url, license) are required for a system-example lesson',
+			path: ['origin']
+		}
+	)
+	.refine(
+		(lesson) => lesson.attributionUrl === null || lesson.attributionUrl.startsWith('https://'),
+		{
+			message: 'attributionUrl must be a real https URL',
+			path: ['attributionUrl']
+		}
+	);
 export type Lesson = z.infer<typeof LessonSchema>;
 
 export const LessonSourceSchema = z.enum(['paste', 'upload']);

@@ -139,6 +139,21 @@ Both are recorded here deliberately, not folded into "known technical
 debt" above — they're policy decisions Chiron is blocked on, not
 engineering work Chiron could just go do.
 
+- **Onboarding-example content licensing** (`prompts-onboarding-
+examples.txt`, `docs/CONTENT_LICENSING.md`). Two of the three seeded
+  system-example lessons (history-essay, journalism — both Library of
+  Congress sources) have their public-domain status corroborated via
+  search-indexed content and LOC's general published copyright policy,
+  not a direct live-page read — every loc.gov subdomain returns a
+  Cloudflare bot-check to both a plain fetch and real-browser automation.
+  A person should do a genuine direct read of both URLs at the next
+  quarterly re-check (`docs/CONTENT_LICENSING.md` process, item 5) to
+  close this out. Separately: migration `0017_system_example_lessons.sql`
+  and `0018_copy_lesson_preserves_attribution.sql` need to be applied via
+  the Supabase SQL Editor, and `npm run seed:onboarding-examples` run
+  once after that, before any of the three examples are actually live —
+  as of this writing that hasn't happened yet.
+
 ## Phase 2 status
 
 `docs/PHASE2.md` is the design document — case-content schema, tutor

@@ -1,0 +1,337 @@
+================================================================================
+CHIRON — Onboarding examples + widened subject profiles
+================================================================================
+
+WHAT THIS ADDS
+--------------
+Two related pieces of work:
+
+1. A "journalism" subject profile (the concrete widening example asked
+   for), plus the scaffolding to make adding more profiles trivial —
+   Chiron's subject-profile system was meant to be extensible from the
+   start (see the original architecture spec), so this is filling in
+   an underused seam, not redesigning anything.
+
+2. A small set of real, openly-licensed lesson plans seeded into the
+   app as onboarding examples — new users can browse and see how
+   Chiron scores actual published lessons before submitting their own.
+
+On sourcing: I verified three candidates directly against their actual
+license pages, not just search snippets — table and reasoning below.
+Several tempting journalism candidates were rejected on licensing
+grounds (Stanford History Education Group's material is CC BY-NC,
+SchoolJournalism.org's is CC BY-NC-SA, one OER Commons listing had
+self-contradictory license metadata). Because a chat message isn't a
+durable source of truth for licensing — pages change, and I only have
+snippets for some of what I looked at — every prompt below that touches
+real external content requires Claude Code to fetch and re-confirm the
+actual license statement at build time, not just trust this table.
+
+  Profile          | Source                                    | License (my verification)
+  ------------------|--------------------------------------------|---------------------------
+  Science lab       | OpenSciEd MS unit 6.2 "Thermal Energy"      | CC BY 4.0 (confirmed on
+                    | openscied.org/instructional-materials/      |  openscied.org's own
+                    | 6-2-thermal-energy/                         |  licensing page)
+  History /         | Library of Congress, "Primary Sources and   | Public domain — LOC-
+  source analysis   | Personal Artifacts"                         |  authored classroom
+                    | loc.gov/classroom-materials/primary-        |  material is US federal
+                    | sources-and-personal-artifacts/             |  government work product
+  Journalism        | Library of Congress, "Read All About It: A  | Public domain — same
+                    | New Teacher's Guide to Analyzing             |  reasoning, plus the
+                    | Newspapers" (blogs.loc.gov/teachers/2015/   |  1898 Chronicling America
+                    | 10/read-all-about-it-a-new-teachers-guide-  |  newspaper pages used
+                    | to-analyzing-newspapers/) paired with 1898  |  alongside it are public
+                    | Spanish-American War / "yellow journalism"  |  domain by age
+                    | pages from Chronicling America               |
+                    | (guides.loc.gov/chronicling-america-        |
+                    | yellow-journalism)                          |
+
+Run E1-E5 roughly in order. E1 and E2 can happen in either order or in
+parallel; E3 depends on both; E4 depends on E3; E5 is a final check.
+
+--------------------------------------------------------------------------------
+PROMPT E1 — Add the journalism subject profile, and make the profile list genuinely extensible
+--------------------------------------------------------------------------------
+
+Read src/lib/domain/subjectProfiles.ts and docs/CASE_AUTHORING.md-style
+authoring docs (or wherever subject-profile authoring is currently
+documented — check docs/ARCHITECTURE.md if there's no dedicated doc)
+before starting.
+
+Add a new subject profile, id journalism:
+
+  description: "For lessons where students report, edit, or critically
+  evaluate news and journalism — writing assignments, media-literacy
+  units, or critique of published reporting."
+
+  authenticity example framings (the kind of thing surfaced when the
+  authenticity pillar scores low):
+  - "Have students interview a real, named source (a teacher, a local
+    business owner, a community member) rather than write from
+    imagined quotes."
+  - "Have students cover an actual, verifiable campus or community
+    event and check their draft against what other observers or
+    outlets reported before finalizing it."
+  - "Have students select a real published article and verify one
+    specific factual claim in it against a primary source, rather than
+    just summarizing the article's conclusions."
+
+  skill emphasis: evaluation (is a claim actually substantiated, is a
+  source credible), interpretation (separating fact from opinion or
+  framing), self-regulation (checking your own assumptions or bias
+  before publishing; correcting the record if something turns out
+  wrong).
+
+  suggestion-flavor note for the scoring prompt: when authenticity is
+  low for a journalism-tagged lesson, suggestions should point toward
+  anchoring the assignment in a real, checkable claim or a real
+  interview rather than a hypothetical "write a news article about X"
+  prompt with no accountability to real facts.
+
+While doing this, audit subjectProfiles.ts for anything that makes
+adding profile #3 harder than it should be (hardcoded assumptions
+about exactly two profiles anywhere in scoring, UI, or tests). Fix
+anything found — this profile add should be the proof that the system
+is genuinely extensible, not just theoretically so.
+
+Also add two more profiles now, since journalism alone doesn't fully
+answer "widen this beyond science/history/essay" — pick reasonable
+authenticity framings and skill emphasis following the same pattern:
+
+  - ela-argumentative-writing: general persuasive/argumentative essay
+    writing, not history-specific (distinct from the existing
+    history-essay profile, which is about historical source analysis
+    specifically) — authenticity examples should point toward real
+    audiences and real stakes (writing to an actual school board on a
+    real policy question, responding to a real published op-ed) rather
+    than a generic five-paragraph-essay prompt.
+  - civics-current-events: lessons built around live current events or
+    civic questions — authenticity examples should point toward
+    primary-source government documents, actual local government
+    meetings/agendas, or comparing real competing news coverage of the
+    same event.
+
+Update the subject-profile selector in LessonInputForm.svelte to show
+all five profiles. Add tests: each profile's authenticity examples and
+skill emphasis are well-formed; a lesson scored under journalism vs.
+ela-argumentative-writing with identical pillar scores produces
+visibly different suggestion text (mirrors the existing test pattern
+for science-lab vs. history-essay divergence, if one already exists —
+find and follow it).
+
+--------------------------------------------------------------------------------
+PROMPT E2 — Domain schema for attributed onboarding-example lessons
+--------------------------------------------------------------------------------
+
+Read the existing Lesson/LessonVersion domain types and the visibility
+model (private/org-shared/public-template) before starting.
+
+Add the concept of a system-seeded example lesson, distinct from a
+regular user's public-template lesson:
+
+  - A source field on lessons (or a new small linked table if that's
+    cleaner given the existing schema — your call, follow whichever
+    pattern the existing codebase already leans toward): 'user' |
+    'system_example'.
+  - Attribution metadata, required when source = 'system_example', null
+    otherwise: attributionName (text, e.g. "OpenSciEd"), attributionUrl
+    (a real https URL), license (an enum: 'CC-BY-4.0' | 'CC-BY-SA-4.0'
+    | 'Public-Domain-US-Govt' | 'Public-Domain-Expired' |
+    'Other-Permission-Granted' — extend this enum rather than using a
+    free-text field, so the UI can render a correct badge/icon per
+    license type without string-matching), and licenseNote (free text
+    for anything that needs qualifying — e.g. "Adapted from the
+    publicly visible unit overview page; the full unit requires a free
+    OpenSciEd account").
+  - is_system_example lessons are never owned by an ordinary user in
+    the way a regular lesson is: nobody's "my lessons" list should
+    include them, and no ordinary authenticated user should be able to
+    edit or delete them via RLS (design this the same deliberate way
+    ADR-020 approached practice-table writes — work out who/what is
+    allowed to write these rows, most likely nobody through the normal
+    authenticated role, only a migration/seed script or a future
+    admin-only path, and say so explicitly in a migration comment).
+  - is_system_example lessons must be publicly readable (they're
+    onboarding material, visible to signed-out visitors too if
+    signed-out browsing exists, or at minimum to any signed-in user
+    regardless of org) — confirm and design the RLS read policy for
+    this explicitly rather than assuming public-template's existing
+    policy already covers a null-owner row correctly.
+
+Add a migration for the schema change. Add tests: an example lesson's
+attribution fields are required and validated when source =
+'system_example'; RLS allows any authenticated user (and signed-out, if
+applicable) to read example lessons; RLS blocks any ordinary
+authenticated user from writing to one via a direct REST call.
+
+--------------------------------------------------------------------------------
+PROMPT E3 — Source and seed the real example lessons
+--------------------------------------------------------------------------------
+
+This prompt requires live web access. Do not hardcode lesson content
+from this prompt's text alone — fetch each real source and verify its
+current license/rights statement yourself before using it, exactly the
+way you'd verify a claim during Phase 2A's provider work. Licenses and
+page content can change after this prompt was written; you are the
+actual source of truth at build time, not this document.
+
+For each of the three candidates below: fetch the source URL, confirm
+the license/rights statement you find matches (or differs from) what's
+noted here, and only proceed to seed it if you can positively confirm
+an open license or public-domain status from the live page itself. If
+a candidate's status doesn't check out the way this prompt expects,
+stop and report rather than seeding it anyway or guessing.
+
+1. Science lab — OpenSciEd Middle School unit 6.2 "Thermal Energy".
+   Fetch https://openscied.org/instructional-materials/6-2-thermal-energy/
+   and confirm OpenSciEd's Middle School materials are still CC BY 4.0
+   (check https://openscied.org/knowledge/how-should-i-attribute-the-
+   use-of-openscied-materials/ or equivalent current page for the
+   authoritative statement — Elementary/High School OpenSciEd materials
+   are CC BY-NC, a different license; make sure you're citing the
+   Middle School license specifically, not assuming it applies
+   site-wide). Build the seeded lesson from what's actually visible on
+   the public overview page (the anchoring phenomenon — testing
+   whether a new double-walled cup design keeps a drink cold longer —
+   the engineering design task, the driving question). The full unit
+   download requires a free account login and is out of reach here;
+   do not invent lesson activities beyond what the public overview page
+   actually describes. Use the app's structured 4-field input shape
+   (Objectives / Teacher Script & Key Questions / Student Activities /
+   Assessment) — adapt the real content into that structure rather than
+   pasting raw page text verbatim. attributionName: "OpenSciEd".
+   attributionUrl: the unit page. license: CC-BY-4.0. licenseNote:
+   note explicitly that this is adapted from the public unit-overview
+   page, not the full gated unit download, and link to where a teacher
+   can get the complete unit.
+
+2. History / source analysis — Library of Congress, "Primary Sources
+   and Personal Artifacts". Fetch
+   https://www.loc.gov/classroom-materials/primary-sources-and-
+   personal-artifacts/ and confirm it's presented as Library of
+   Congress-authored classroom material (LOC's standard position is
+   that staff-authored material is free of known copyright restrictions
+   as US federal government work product — confirm this is still LOC's
+   stated position, e.g. via their rights/citing guidance, rather than
+   assuming). Build the seeded lesson from the actual page content
+   (introducing primary sources, examining a personal artifact,
+   Library of Congress's Primary Source Analysis Tool, constructing
+   context). attributionName: "Library of Congress". attributionUrl:
+   the page. license: Public-Domain-US-Govt.
+
+3. Journalism — Library of Congress teacher's guide to analyzing
+   newspapers, paired with 1898 yellow-journalism primary sources.
+   Fetch https://blogs.loc.gov/teachers/2015/10/read-all-about-it-a-
+   new-teachers-guide-to-analyzing-newspapers/ and
+   https://guides.loc.gov/chronicling-america-yellow-journalism for the
+   framing and confirm both are LOC-authored/public domain. Build a
+   lesson around: analyzing an 1898 New York Journal or New York World
+   front page covering the sinking of the USS Maine using LOC's
+   newspaper-analysis question prompts (headlines, visual elements,
+   related reports, dates for context), then discussing how competition
+   for readers ("yellow journalism") shaped the coverage — this maps
+   directly onto the journalism subject profile from Prompt E1
+   (evaluating source credibility, separating fact from sensationalism).
+   attributionName: "Library of Congress". attributionUrl: both pages,
+   or the more specific one if the content leans more on one than the
+   other. license: Public-Domain-US-Govt. licenseNote: mention that the
+   specific 1898 newspaper page(s) referenced are themselves public
+   domain by age, distinct from (but consistent with) the teacher's
+   guide's own public-domain status.
+
+For all three: write the seed as a script or migration (follow
+whichever pattern's more consistent with how other one-time data was
+added, if any precedent exists — otherwise a small idempotent seed
+script under scripts/ that can be safely re-run is fine), using the
+source = 'system_example' schema from Prompt E2. After seeding, run
+each lesson through the real scoring pipeline once (live, not mocked)
+so each example has a genuine pre-computed score and suggestions
+available immediately — reuse the content-hash cache from Prompt P5 so
+this doesn't need special-casing in scoreLesson itself. Tag each with
+its subject profile from Prompt E1 (science-lab, history-essay,
+journalism respectively).
+
+Add a test per seeded lesson confirming its attribution fields are
+present and its attributionUrl actually resolves (a live check, not
+just a non-empty-string check) — attribution links going stale
+silently is worse than not having them.
+
+--------------------------------------------------------------------------------
+PROMPT E4 — Onboarding UI: an Examples section new users actually see
+--------------------------------------------------------------------------------
+
+Read src/routes/library (or wherever the shared library UI lives) and
+whatever currently happens right after signup before starting.
+
+Add a way for new users to discover the three (or more, after Prompt
+E1's extra profiles get their own examples later) seeded examples:
+
+  - A dedicated /examples route, or a clearly separated "Examples"
+    section pinned at the top of the existing library view — pick
+    whichever fits the current library page's structure better, your
+    call.
+  - Each example card/page shows: title; subject profile; a real,
+    clickable attribution link with a license badge (CC BY 4.0 /
+    Public Domain (U.S. Government) — render this from the license
+    enum, don't hardcode per-lesson) — the badge and link need to be
+    genuinely visible, not buried in a tooltip, since this is a
+    condition of using the content, not a courtesy; the lesson text
+    itself; its pre-computed three-pillar score, skill coverage, and
+    suggestions (Prompt E3 already ran scoring — display the stored
+    result, don't re-call the LLM on every view); a "Duplicate and try
+    your own edit" button reusing the existing save-a-copy flow from
+    the shared library.
+  - Surface this to brand-new users specifically: either redirect a
+    first-time signed-in user to /examples once (check whatever
+    "first login" signal already exists, e.g. no lessons scored yet —
+    don't add a new onboarding-flag column if an equivalent condition
+    is already cheaply derivable), or add a persistent, unobtrusive
+    "New here? See example lessons" banner on the main lesson-input
+    page that a user can dismiss.
+  - Don't let is_system_example lessons show up mixed into an
+    individual user's "my lessons" list or an org's shared library
+    filters in a way that's confusing about ownership — they're a
+    separate, clearly-labeled category throughout.
+
+Add component tests: the license badge renders correctly for each
+license enum value; the attribution link is present and points to the
+real URL; "duplicate and edit" produces a new private lesson owned by
+the current user, not a mutation of the shared example.
+
+--------------------------------------------------------------------------------
+PROMPT E5 — Compliance check and a repeatable process doc
+--------------------------------------------------------------------------------
+
+Do not add new examples in this prompt — audit what Prompt E3 actually
+seeded and close the loop.
+
+1. Re-fetch each of the three attributionUrl values live and re-confirm
+   the license statement one more time (pages can change between E3
+   and now, especially if any time passed) — if anything's drifted,
+   flag it in docs/SECURITY.md or a new docs/CONTENT_LICENSING.md
+   rather than silently leaving stale seeded content live.
+2. Confirm every place the lesson text is rendered (the /examples view,
+   any "duplicate and edit" copy, any before/after comparison if a
+   user edits their copy) still shows the attribution — attribution
+   needs to survive a copy, not just appear on the original.
+3. Create docs/CONTENT_LICENSING.md documenting the process used here,
+   so future examples (more subject profiles will want their own
+   examples eventually) follow the same discipline: prefer CC BY,
+   CC BY-SA, or public-domain-by-age/by-government-authorship sources;
+   verify the license on the live source page at ingestion time, not
+   from a search snippet or a prior conversation; store attribution as
+   structured data, not just a text blurb; re-verify periodically
+   (define a cadence — quarterly is reasonable given how few examples
+   exist); explicitly reject CC BY-NC/BY-NC-SA sources unless Chiron's
+   own deployment is confirmed non-commercial at the time (note the
+   current answer to that question here if it's known, or flag it as
+   unknown/product-decision-needed if it isn't — don't assume either
+   way).
+4. Run the full test/check/lint/build suite plus the live attribution-
+   link tests from Prompts E2-E4.
+
+Report: which of the three examples (if any) had licensing drift since
+E3; confirmation that attribution survives duplication; and the
+now-documented process for adding the next batch of examples (e.g. once
+ela-argumentative-writing and civics-current-events from Prompt E1 get
+their own seeded examples).
