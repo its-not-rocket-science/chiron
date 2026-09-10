@@ -82,15 +82,6 @@
 		</p>
 	</header>
 
-	{#if form?.error}
-		<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{form.error}</p>
-	{/if}
-	{#if form?.copiedLessonId}
-		<p role="status" class="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-700">
-			Copied to your lessons. <a href={resolve('/lessons')} class="underline">View it</a>.
-		</p>
-	{/if}
-
 	{#if data.examples.length === 0}
 		<p class="text-sm text-slate-500">No example lessons are available yet.</p>
 	{/if}
@@ -164,6 +155,18 @@
 					{submittingId === example.id ? 'Copying…' : 'Duplicate and try your own edit'}
 				</button>
 			</form>
+
+			{#if form?.sourceLessonId === example.id}
+				{#if form.error}
+					<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+						{form.error}
+					</p>
+				{:else if form.copiedLessonId}
+					<p role="status" class="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-700">
+						Copied to your lessons. <a href={resolve('/lessons')} class="underline">View it</a>.
+					</p>
+				{/if}
+			{/if}
 		</article>
 	{/each}
 </main>

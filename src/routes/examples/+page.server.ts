@@ -79,21 +79,41 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { examples: data ?? [] };
 };
 
+/**
+ * Every branch returns the same three fields (error/copiedLessonId null
+ * where not applicable) so `ActionData` is one consistent shape rather
+ * than a union the template has to narrow — `sourceLessonId` lets the
+ * page show feedback next to the button that was actually clicked,
+ * instead of only at the top of a long page the user has scrolled away
+ * from (found live: the success case had this same bug — the
+ * confirmation rendered off-screen, which read as "the button does
+ * nothing" even though the copy had actually succeeded).
+ */
 export const actions: Actions = {
 	duplicate: async ({ request, locals }) => {
-		if (!locals.supabase) return fail(500, { error: 'Accounts are not configured yet.' });
+		if (!locals.supabase)
+			return fail(500, {
+				error: 'Accounts are not configured yet.',
+				copiedLessonId: null,
+				sourceLessonId: null
+			});
 
 		const formData = await request.formData();
 		const lessonId = formData.get('lessonId');
-		if (typeof lessonId !== 'string') return fail(400, { error: 'Missing lesson id.' });
+		if (typeof lessonId !== 'string')
+			return fail(400, { error: 'Missing lesson id.', copiedLessonId: null, sourceLessonId: null });
 
 		const { data, error } = await locals.supabase.rpc('copy_lesson', {
 			source_lesson_id: lessonId
 		});
 		if (error || !data) {
-			return fail(400, { error: 'Could not copy this example. Please try again.' });
+			return fail(400, {
+				error: 'Could not copy this example. Please try again.',
+				copiedLessonId: null,
+				sourceLessonId: lessonId
+			});
 		}
 
-		return { copiedLessonId: data as string };
+		return { error: null, copiedLessonId: data as string, sourceLessonId: lessonId };
 	}
 };

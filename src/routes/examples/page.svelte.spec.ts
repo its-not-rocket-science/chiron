@@ -132,9 +132,23 @@ describe('/examples page (Prompt E4)', () => {
 				examples: [exampleRow()]
 			},
 			params: {},
-			form: { copiedLessonId: 'new-lesson-id' }
+			form: { error: null, copiedLessonId: 'new-lesson-id', sourceLessonId: 'lesson-1' }
 		});
 
 		await expect.element(screen.getByText('Copied to your lessons.')).toBeVisible();
+	});
+
+	it("doesn't show a different example's success message on this card (the message must sit next to the button that was actually clicked, not just anywhere on the page)", async () => {
+		const screen = await render(Page, {
+			data: {
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				session: null,
+				examples: [exampleRow()]
+			},
+			params: {},
+			form: { error: null, copiedLessonId: 'new-lesson-id', sourceLessonId: 'some-other-lesson-id' }
+		});
+
+		expect(screen.getByText('Copied to your lessons.').query()).toBeNull();
 	});
 });
