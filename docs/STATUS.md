@@ -148,11 +148,11 @@ examples.txt`, `docs/CONTENT_LICENSING.md`). Two of the three seeded
   Cloudflare bot-check to both a plain fetch and real-browser automation.
   A person should do a genuine direct read of both URLs at the next
   quarterly re-check (`docs/CONTENT_LICENSING.md` process, item 5) to
-  close this out. Separately: migration `0017_system_example_lessons.sql`
-  and `0018_copy_lesson_preserves_attribution.sql` need to be applied via
-  the Supabase SQL Editor, and `npm run seed:onboarding-examples` run
-  once after that, before any of the three examples are actually live —
-  as of this writing that hasn't happened yet.
+  close this out. Migrations `0017_system_example_lessons.sql` and
+  `0018_copy_lesson_preserves_attribution.sql` are applied and
+  `npm run seed:onboarding-examples` has been run — confirmed 2026-09-20
+  by re-running with `--dry-run`, which reported all three examples
+  already seeded — so all three onboarding examples are live.
 
 ## Phase 2 status
 
