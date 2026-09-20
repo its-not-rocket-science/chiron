@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '$lib/assets/chiron0.png';
 	import { resolve } from '$app/paths';
 	import type { LayoutProps } from './$types';
 
