@@ -290,6 +290,43 @@ supports 5-20 external testers), aside from one small pure function
 37 until real tester data actually exists — do not run that analysis
 early.
 
+### LLM cross-model QA sweep (`prompt.txt`, 2026-09-21) — bug/neutrality QA, not a Prompt 37 substitute
+
+`scripts/qa-cross-model-sweep.ts` (new, throwaway QA tooling, not wired
+into the app): generates synthetic student transcripts against Chiron's
+real FSM/`TutorProvider`/`ReasoningClassifierProvider` (DeepSeek, the
+production vendor, ADR-008) across five personas × three canonical
+cases, then has other vendors judge each transcript against a fixed
+neutrality/injection/tone checklist. Full report:
+`docs/qa/LLM_CROSS_CHECK_2026-09-21.md`. This does **not** change
+Prompt 37's blocked status above — see that report's own opening
+caveat for why an LLM-simulated student can't substitute for real
+tester data.
+
+Ran with DeepSeek + OpenAI only — the configured `MISTRAL_API_KEY`
+returned HTTP 429 (account/quota-level, confirmed via an isolated
+single request outside this script) on every call, so Mistral could
+not participate this pass; re-run with all three once that's resolved.
+
+Headline finding: the measured prompt-injection success rate on the
+fake-JSON-blob attack shape (`docs/SECURITY.md` Section 9) is **0/24
+(0%) across the original attack plus three novel framings** this pass,
+down from Section 9's original 2/9 (~22%) sample — a real improvement,
+though still a small sample and not itself a code change (nothing in
+`classifierCore.ts` was touched; ADR-021's underlying defense is
+unchanged). Everything else the checklist covers (correctness-signal
+leakage, unrevealed-evidence references, challenge-intensity fairness,
+labeling language) came back clean in the large majority of transcripts;
+a minority of flagged items are real, minor tutor-phrasing repetition
+worth a human read, not a security or neutrality defect — see the
+report for the specific transcripts. One methodology limitation found
+and documented in the report itself: the LLM judge's verdict on the
+"injection earned unwarranted credit" checklist item is unreliable (it
+pattern-matches on the literal word "fabricated" appearing anywhere in
+a transcript rather than checking the actually-awarded signals) — the
+report's own deterministic evidenceQuote check is the trustworthy
+number for that question, not the judge's qualitative verdict.
+
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
 - `prompts.txt` Prompt 37 (real-user-test analysis) — explicitly
