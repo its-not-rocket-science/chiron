@@ -78,25 +78,29 @@ left to rot.
 
 ## The three examples seeded (Prompts E1-E5)
 
-| Profile       | Source                                                                                                                                                                                                                      | License               | Verified how                                                                                              |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| science-lab   | [OpenSciEd MS 6.2 "Thermal Energy"](https://openscied.org/instructional-materials/6-2-thermal-energy/)                                                                                                                      | CC-BY-4.0             | **Direct live-page fetch**, twice (seed time + this review) — confirmed on OpenSciEd's own licensing page |
-| history-essay | [Library of Congress — Primary Sources and Personal Artifacts](https://www.loc.gov/classroom-materials/primary-sources-and-personal-artifacts/)                                                                             | Public-Domain-US-Govt | **Not a direct fetch** — see limitation below                                                             |
-| journalism    | [LOC — Read All About It](https://blogs.loc.gov/teachers/2015/10/read-all-about-it-a-new-teachers-guide-to-analyzing-newspapers/) + [Yellow Journalism guide](https://guides.loc.gov/chronicling-america-yellow-journalism) | Public-Domain-US-Govt | **Not a direct fetch** — see limitation below                                                             |
+| Profile       | Source                                                                                                                                                                                                                      | License               | Verified how                                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| science-lab   | [OpenSciEd MS 6.2 "Thermal Energy"](https://openscied.org/instructional-materials/6-2-thermal-energy/)                                                                                                                      | CC-BY-4.0             | **Direct live-page fetch**, three times (seed time, an earlier review, and the 2026-09-21 quarterly re-check) — confirmed via OpenSciEd's own licensing FAQ, [what-does-it-mean-that-these-units-are-licensed-as-cc-by-4-0](https://openscied.org/knowledge/what-does-it-mean-that-these-units-are-licensed-as-cc-by-4-0/) ("The OpenSciEd Middle School units ... are licensed as CC-BY-4.0", distinct from Elementary/High School's CC-BY-NC) |
+| history-essay | [Library of Congress — Primary Sources and Personal Artifacts](https://www.loc.gov/classroom-materials/primary-sources-and-personal-artifacts/)                                                                             | Public-Domain-US-Govt | **Not a direct fetch** — re-attempted 2026-09-21, still blocked (see limitation below)                                            |
+| journalism    | [LOC — Read All About It](https://blogs.loc.gov/teachers/2015/10/read-all-about-it-a-new-teachers-guide-to-analyzing-newspapers/) + [Yellow Journalism guide](https://guides.loc.gov/chronicling-america-yellow-journalism) | Public-Domain-US-Govt | **Not a direct fetch** — re-attempted 2026-09-21, still blocked (see limitation below)                                            |
 
 ### Known limitation: the two Library of Congress sources
 
 Rule 3 above ("verify on the live page, never from a snippet") could not
 be followed for these two sources. Every loc.gov subdomain
-(`www.loc.gov`, `blogs.loc.gov`, `guides.loc.gov`) returns a Cloudflare
-bot-check ("Just a moment...") to every fetch method available in this
-environment — a direct HTTP fetch, and a real Chrome browser session via
-browser automation — and no attempt was made to defeat that check (this
+(`www.loc.gov`, `blogs.loc.gov`, `guides.loc.gov`) has consistently
+blocked automated fetches — a Cloudflare bot-check ("Just a moment...")
+at seed time and the first review, a plain HTTP 403 at the 2026-09-21
+quarterly re-check — across every fetch method available in this
+environment (direct HTTP fetch and a real Chrome browser session via
+browser automation), and no attempt was made to defeat that check (this
 repo's assistant tooling treats bypassing bot-detection as out of bounds
-regardless of purpose).
+regardless of purpose). **Unchanged limitation, re-attempted and
+re-confirmed still blocked, not a new finding.**
 
 What was actually verified instead, and disclosed to a human before
-seeding proceeded on this basis:
+seeding proceeded on this basis (re-confirmed, not just carried over
+unchanged, at the 2026-09-21 re-check):
 
 - LOC's general, published copyright policy — staff-authored classroom
   material is treated as free of known copyright restrictions, as US
@@ -104,16 +108,23 @@ seeding proceeded on this basis:
   — via web search, not a direct fetch of loc.gov itself.
 - Independent, search-indexed descriptions of both pages' actual content
   (topics, structure, the specific tools/prompts referenced), consistent
-  across the initial sourcing pass and a second check for this document,
-  minutes apart in the same review.
+  across the initial sourcing pass, a second check for this document, and
+  the 2026-09-21 quarterly re-check.
 
 This is a real gap against rule 3, not a technicality — it was a
 human-approved judgment call at the time (a person was asked, explicitly,
 whether to proceed on this basis or wait), not a default this process
-should fall back to quietly next time. **Action item:** a person should
-do a genuine live-page read of both LOC URLs (or fetch them from a
-network path that isn't bot-blocked) and confirm the license statement
-directly at the next quarterly re-check, closing this out for real.
+should fall back to quietly next time. **Action item, still open as of
+2026-09-21:** a person should do a genuine live-page read of both LOC
+URLs (or fetch them from a network path that isn't bot-blocked) and
+confirm the license statement directly at the next quarterly re-check,
+closing this out for real.
+
+## Re-check log
+
+| Date       | Result |
+| ---------- | ------ |
+| 2026-09-21 | OpenSciEd re-verified via direct fetch (CC-BY-4.0 for MS confirmed, unchanged). Both LOC sources still blocked (403); general policy re-confirmed via search. No license or content changes found. **Next re-check due: 2026-12-21.** |
 
 ## Rejected candidates (journalism, during the E1-E5 sourcing pass)
 

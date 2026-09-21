@@ -140,15 +140,19 @@ debt" above — they're policy decisions Chiron is blocked on, not
 engineering work Chiron could just go do.
 
 - **Onboarding-example content licensing** (`prompts-onboarding-
-examples.txt`, `docs/CONTENT_LICENSING.md`). Two of the three seeded
-  system-example lessons (history-essay, journalism — both Library of
-  Congress sources) have their public-domain status corroborated via
-  search-indexed content and LOC's general published copyright policy,
-  not a direct live-page read — every loc.gov subdomain returns a
-  Cloudflare bot-check to both a plain fetch and real-browser automation.
-  A person should do a genuine direct read of both URLs at the next
-  quarterly re-check (`docs/CONTENT_LICENSING.md` process, item 5) to
-  close this out. Migrations `0017_system_example_lessons.sql` and
+examples.txt`, `docs/CONTENT_LICENSING.md`). Quarterly re-check run
+  2026-09-21 (`docs/CONTENT_LICENSING.md`'s "Re-check log"): OpenSciEd
+  re-verified via direct fetch, CC-BY-4.0 for Middle School unchanged.
+  Two of the three seeded system-example lessons (history-essay,
+  journalism — both Library of Congress sources) still have their
+  public-domain status corroborated via search-indexed content and
+  LOC's general published copyright policy, not a direct live-page
+  read — every loc.gov subdomain still blocks automated fetches
+  (Cloudflare bot-check or a plain 403, re-confirmed 2026-09-21) to
+  both a plain fetch and real-browser automation. A person should do a
+  genuine direct read of both URLs at the next quarterly re-check (due
+  2026-12-21, `docs/CONTENT_LICENSING.md` process, item 5) to close
+  this out. Migrations `0017_system_example_lessons.sql` and
   `0018_copy_lesson_preserves_attribution.sql` are applied and
   `npm run seed:onboarding-examples` has been run — confirmed 2026-09-20
   by re-running with `--dry-run`, which reported all three examples
