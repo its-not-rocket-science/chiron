@@ -347,6 +347,60 @@ not the judge verdict" note into the report whenever the judge
 over-counts — so a future run surfaces this itself instead of needing
 another hand spot-check.
 
+### Lesson CRUD, nav restructure, and a visual design pass (`prompt.txt`, 2026-09-22)
+
+Four prompts (D1–D4), built in the order the prompt itself recommended:
+
+- **D1 — duplicate-copy idempotency fix.** The `/examples` "Duplicate and
+  try your own edit" action had no check for an existing copy, so
+  clicking it twice silently created a second identical private lesson
+  (reproduced live in production the same day, before the fix landed).
+  Fixed at both the action layer (check-then-insert on
+  `copied_from_lesson_id`, live-tested) and the load layer (the "you
+  already have a copy" state now shows on a plain revisit, not just
+  right after submitting). The two pre-existing production duplicate
+  rows were left in place — confirmed identical, cleanup deliberately
+  deferred, not forgotten.
+- **D2 — lesson detail view, edit, delete.** New `/lessons/[id]` route:
+  view a saved lesson's full text/score/skills/suggestions, owner-only
+  edit-and-resubmit (a new `add_lesson_version` RPC, migration
+  `0019_add_lesson_version.sql` — `save_lesson` only ever created brand
+  -new lessons, ADR-007, so there was no prior "revise a lesson I
+  already own" path), and delete with a confirm step (cascade delete
+  already configured at the DB level). Live RLS tests
+  (`tests/rls/lessonDetailAccess.spec.ts`) plus a real browser
+  walkthrough — which caught one real bug no automated test found: the
+  delete button's own `onclick` disabled it before the native form
+  submit fired, silently swallowing every delete click; fixed via
+  `use:enhance`.
+- **D3 — nav restructure.** The old header was one flat seven-link row,
+  confirmed wrapping below desktop width. New `SiteNav.svelte`: a
+  trimmed header (wordmark + account menu), primary nav demoted to its
+  own bar underneath (a bar, not a sidebar — every page is a centered
+  `max-w-2xl` column with no sidebar chrome, and D3 came before D4's
+  actual design-system pass), a single mobile hamburger collapsing both,
+  `aria-current` active-page marking. No footer added — nothing real
+  exists yet to put in one.
+- **D4 — full visual design pass.** `docs/DESIGN.md`: a real color
+  palette (teal/gold, sourced from the existing favicon, both validated
+  CVD-safe via the dataviz skill's checker) and typography (Public Sans
+  - Lora) applied app-wide, replacing bare Tailwind slate with no accent
+    color; the three-pillar score/skills/suggestions block (used on `/`,
+    `/examples`, `/lessons/[id]`) rebuilt from three separately-bordered
+    stacked cards into one `ReportCard` with internal section dividers and
+    a summary strip. Checked live at two real widths (390px/768px) via
+    nested iframes against the dev server, including the practice case UI
+    this doc already flagged for re-audit — held up, no changes needed
+    there. Simpler routes (account/org, dashboard, library, login, signup,
+    invites) share the already-confirmed-safe layout pattern and weren't
+    individually screenshotted — a recorded scoping decision, not an
+    oversight.
+
+Full verification standard (`npm run check && npm run lint && npm test
+&& npm run build`) green after each of the four; test count now 531,
+530 passing (same pre-existing `SupabaseDataStore` environment artifact
+as before, not a new defect).
+
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
 - `prompts.txt` Prompt 37 (real-user-test analysis) — explicitly
