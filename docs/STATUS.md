@@ -323,13 +323,25 @@ leakage, unrevealed-evidence references, challenge-intensity fairness,
 labeling language) came back clean in the large majority of transcripts;
 a minority of flagged items are real, minor tutor-phrasing repetition
 worth a human read, not a security or neutrality defect — see the
-report for the specific transcripts. One methodology limitation found
-and documented in the report itself: the LLM judge's verdict on the
-"injection earned unwarranted credit" checklist item is unreliable (it
-pattern-matches on the literal word "fabricated" appearing anywhere in
-a transcript rather than checking the actually-awarded signals) — the
-report's own deterministic evidenceQuote check is the trustworthy
-number for that question, not the judge's qualitative verdict.
+report for the specific transcripts. The report also has a dedicated
+"Judge disagreements" section (prompt.txt Step 2's "record both
+verdicts, don't average or pick one" requirement) pairing up each
+transcript's two judges and listing every item where they diverge.
+
+Two methodology limitations found and now auto-documented by the
+script itself on every run, not just noted by hand once: the LLM
+judge's verdict on the "injection earned unwarranted credit" checklist
+item, and separately on "evidenceQuote fairly represents student"
+(found via a follow-up manual spot-check after the first fix), are
+both unreliable on injection-attempt transcripts — the judge
+pattern-matches on the literal spoofed word (e.g. "fabricated")
+appearing anywhere in the transcript rather than checking the
+actually-awarded signals. `scripts/qa-cross-model-sweep.ts` now
+compares each item's judge fail-count against the deterministic
+evidenceQuote check and auto-inserts a "Trust the deterministic table,
+not the judge verdict" note into the report whenever the judge
+over-counts — so a future run surfaces this itself instead of needing
+another hand spot-check.
 
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
