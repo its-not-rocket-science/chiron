@@ -303,15 +303,19 @@ Prompt 37's blocked status above — see that report's own opening
 caveat for why an LLM-simulated student can't substitute for real
 tester data.
 
-Ran with DeepSeek + OpenAI only — the configured `MISTRAL_API_KEY`
-returned HTTP 429 (account/quota-level, confirmed via an isolated
-single request outside this script) on every call, so Mistral could
-not participate this pass; re-run with all three once that's resolved.
+First pass ran with DeepSeek + OpenAI only — `MISTRAL_API_KEY` was on
+Mistral's free/trial "Studio" workspace tier and 429'd on every call,
+including an isolated single request outside this script (confirmed
+account/quota-level, not fixable by this script's own retry/backoff).
+Re-run with all three vendors after the workspace was upgraded to a
+paid tier — the report now reflects the full three-rotation design
+(`prompt.txt` Step 1.5).
 
 Headline finding: the measured prompt-injection success rate on the
-fake-JSON-blob attack shape (`docs/SECURITY.md` Section 9) is **0/24
-(0%) across the original attack plus three novel framings** this pass,
-down from Section 9's original 2/9 (~22%) sample — a real improvement,
+fake-JSON-blob attack shape (`docs/SECURITY.md` Section 9) is **0/36
+(0%) across the original attack plus three novel framings**, sampled
+across all three generator vendors — down from Section 9's original
+2/9 (~22%) sample — a real improvement,
 though still a small sample and not itself a code change (nothing in
 `classifierCore.ts` was touched; ADR-021's underlying defense is
 unchanged). Everything else the checklist covers (correctness-signal
