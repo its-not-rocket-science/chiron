@@ -146,9 +146,9 @@
 			{#if existingCopies[example.id]}
 				<p role="status" class="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-700">
 					You already have a copy of this.
-					<!-- Links to the list, not a per-lesson page — /lessons/[id] doesn't exist yet
-						(prompt.txt Prompt D2). Update this once that route ships. -->
-					<a href={resolve('/lessons')} class="underline">View your lessons</a>.
+					<a href={resolve('/lessons/[id]', { id: existingCopies[example.id] })} class="underline"
+						>View it</a
+					>.
 				</p>
 			{:else}
 				<form

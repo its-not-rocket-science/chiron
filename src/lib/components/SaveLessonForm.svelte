@@ -63,9 +63,11 @@
 
 	{#if status === 'saved'}
 		<p role="status" class="text-sm text-slate-600">
-			Saved. <a href={resolve('/lessons')} class="underline">View in my lessons</a>
+			Saved.
 			{#if savedLessonId}
-				<span class="sr-only">(id {savedLessonId})</span>
+				<a href={resolve('/lessons/[id]', { id: savedLessonId })} class="underline">View it</a>
+			{:else}
+				<a href={resolve('/lessons')} class="underline">View in my lessons</a>
 			{/if}
 		</p>
 	{:else}

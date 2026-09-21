@@ -31,7 +31,10 @@
 			{#each data.lessons as lesson (lesson.id)}
 				<li class="rounded-md border border-slate-200 px-4 py-3">
 					<div class="flex items-center justify-between">
-						<span class="font-medium text-slate-800">{lesson.title}</span>
+						<a
+							href={resolve('/lessons/[id]', { id: lesson.id })}
+							class="font-medium text-slate-800 underline hover:text-slate-900">{lesson.title}</a
+						>
 						<span class="text-xs text-slate-400">{visibilityLabel[lesson.visibility]}</span>
 					</div>
 					<p class="mt-1 text-sm text-slate-500">
