@@ -54,7 +54,8 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [exampleRow()]
+				examples: [exampleRow()],
+				existingCopies: {}
 			},
 			params: {},
 			form: null
@@ -79,7 +80,8 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [publicDomainRow]
+				examples: [publicDomainRow],
+				existingCopies: {}
 			},
 			params: {},
 			form: null
@@ -93,7 +95,8 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [exampleRow()]
+				examples: [exampleRow()],
+				existingCopies: {}
 			},
 			params: {},
 			form: null
@@ -113,7 +116,8 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [exampleRow()]
+				examples: [exampleRow()],
+				existingCopies: {}
 			},
 			params: {},
 			form: null
@@ -129,13 +133,19 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [exampleRow()]
+				examples: [exampleRow()],
+				existingCopies: {}
 			},
 			params: {},
-			form: { error: null, copiedLessonId: 'new-lesson-id', sourceLessonId: 'lesson-1' }
+			form: {
+				error: null,
+				copiedLessonId: 'new-lesson-id',
+				sourceLessonId: 'lesson-1',
+				alreadyExisted: false
+			}
 		});
 
-		await expect.element(screen.getByText('Copied to your lessons.')).toBeVisible();
+		await expect.element(screen.getByText('You already have a copy of this.')).toBeVisible();
 	});
 
 	it("doesn't show a different example's success message on this card (the message must sit next to the button that was actually clicked, not just anywhere on the page)", async () => {
@@ -143,12 +153,59 @@ describe('/examples page (Prompt E4)', () => {
 			data: {
 				user: { id: 'user-1', email: 'teacher@example.com' },
 				session: null,
-				examples: [exampleRow()]
+				examples: [exampleRow()],
+				existingCopies: {}
 			},
 			params: {},
-			form: { error: null, copiedLessonId: 'new-lesson-id', sourceLessonId: 'some-other-lesson-id' }
+			form: {
+				error: null,
+				copiedLessonId: 'new-lesson-id',
+				sourceLessonId: 'some-other-lesson-id',
+				alreadyExisted: false
+			}
 		});
 
-		expect(screen.getByText('Copied to your lessons.').query()).toBeNull();
+		expect(screen.getByText('You already have a copy of this.').query()).toBeNull();
+		await expect
+			.element(screen.getByRole('button', { name: 'Duplicate and try your own edit' }))
+			.toBeVisible();
+	});
+
+	it('shows "you already have a copy" on page load (a revisit, not just right after copying) and hides the duplicate button, per the existingCopies map from load', async () => {
+		const screen = await render(Page, {
+			data: {
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				session: null,
+				examples: [exampleRow()],
+				existingCopies: { 'lesson-1': 'existing-copy-id' }
+			},
+			params: {},
+			form: null
+		});
+
+		await expect.element(screen.getByText('You already have a copy of this.')).toBeVisible();
+		expect(
+			screen.getByRole('button', { name: 'Duplicate and try your own edit' }).query()
+		).toBeNull();
+	});
+
+	it('a duplicate action reporting alreadyExisted still shows the same "already have a copy" message, not a distinct one requiring separate handling', async () => {
+		const screen = await render(Page, {
+			data: {
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				session: null,
+				examples: [exampleRow()],
+				existingCopies: {}
+			},
+			params: {},
+			form: {
+				error: null,
+				copiedLessonId: 'existing-copy-id',
+				sourceLessonId: 'lesson-1',
+				alreadyExisted: true
+			}
+		});
+
+		await expect.element(screen.getByText('You already have a copy of this.')).toBeVisible();
 	});
 });

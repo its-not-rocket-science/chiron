@@ -13,6 +13,14 @@
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
 	let submittingId = $state<string | null>(null);
+	// A fresh submission's form.copiedLessonId is merged in on top of the
+	// load-time existingCopies map, so the just-copied example shows "you
+	// already have a copy" immediately, without waiting for a reload.
+	let existingCopies = $derived(
+		form?.copiedLessonId && form.sourceLessonId
+			? { ...data.existingCopies, [form.sourceLessonId]: form.copiedLessonId }
+			: data.existingCopies
+	);
 
 	function subjectName(id: string): string {
 		return getSubjectProfile(id)?.name ?? id;
@@ -135,37 +143,40 @@
 
 			<HonestyNote />
 
-			<form
-				method="POST"
-				action="?/duplicate"
-				use:enhance={() => {
-					submittingId = example.id;
-					return async ({ update }) => {
-						await update();
-						submittingId = null;
-					};
-				}}
-			>
-				<input type="hidden" name="lessonId" value={example.id} />
-				<button
-					type="submit"
-					disabled={submittingId === example.id}
-					class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+			{#if existingCopies[example.id]}
+				<p role="status" class="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-700">
+					You already have a copy of this.
+					<!-- Links to the list, not a per-lesson page — /lessons/[id] doesn't exist yet
+						(prompt.txt Prompt D2). Update this once that route ships. -->
+					<a href={resolve('/lessons')} class="underline">View your lessons</a>.
+				</p>
+			{:else}
+				<form
+					method="POST"
+					action="?/duplicate"
+					use:enhance={() => {
+						submittingId = example.id;
+						return async ({ update }) => {
+							await update();
+							submittingId = null;
+						};
+					}}
 				>
-					{submittingId === example.id ? 'Copying…' : 'Duplicate and try your own edit'}
-				</button>
-			</form>
+					<input type="hidden" name="lessonId" value={example.id} />
+					<button
+						type="submit"
+						disabled={submittingId === example.id}
+						class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+					>
+						{submittingId === example.id ? 'Copying…' : 'Duplicate and try your own edit'}
+					</button>
+				</form>
+			{/if}
 
-			{#if form?.sourceLessonId === example.id}
-				{#if form.error}
-					<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
-						{form.error}
-					</p>
-				{:else if form.copiedLessonId}
-					<p role="status" class="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-700">
-						Copied to your lessons. <a href={resolve('/lessons')} class="underline">View it</a>.
-					</p>
-				{/if}
+			{#if form?.sourceLessonId === example.id && form.error}
+				<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+					{form.error}
+				</p>
 			{/if}
 		</article>
 	{/each}

@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$lib/server/env';
+import { actions } from '../../src/routes/examples/+page.server';
 
 const hasSupabase = Boolean(
 	env.PUBLIC_SUPABASE_URL && env.PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY
@@ -176,5 +177,46 @@ describe.skipIf(!hasSupabase)('RLS — system-example lessons (adversarial, live
 			.from('lessons')
 			.delete()
 			.eq('id', newLessonId as string);
+	});
+
+	it('the /examples duplicate action is idempotent: calling it twice for the same example produces one lesson row, and the second call surfaces the existing copy instead of creating another (prompt.txt Prompt D1)', async () => {
+		function duplicateEvent() {
+			const formData = new FormData();
+			formData.append('lessonId', exampleLessonId);
+			return {
+				request: new Request('http://localhost/examples?/duplicate', {
+					method: 'POST',
+					body: formData
+				}),
+				locals: { user: { id: userId! }, supabase: userClient }
+			} as unknown as Parameters<typeof actions.duplicate>[0];
+		}
+
+		const first = (await actions.duplicate(duplicateEvent())) as {
+			error: string | null;
+			copiedLessonId: string | null;
+			sourceLessonId: string | null;
+			alreadyExisted: boolean;
+		};
+		expect(first.error).toBeNull();
+		expect(first.copiedLessonId).toBeTruthy();
+		expect(first.alreadyExisted).toBe(false);
+
+		const second = (await actions.duplicate(duplicateEvent())) as typeof first;
+		expect(second.error).toBeNull();
+		expect(second.copiedLessonId).toBe(first.copiedLessonId);
+		expect(second.alreadyExisted).toBe(true);
+
+		const { data: copies } = await admin
+			.from('lessons')
+			.select('id')
+			.eq('owner_id', userId!)
+			.eq('copied_from_lesson_id', exampleLessonId);
+		expect(copies?.length).toBe(1);
+
+		await admin
+			.from('lessons')
+			.delete()
+			.eq('id', first.copiedLessonId as string);
 	});
 });

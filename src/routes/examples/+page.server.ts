@@ -48,7 +48,7 @@ export interface ExampleLessonRow {
  */
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(303, '/login?redirect=/examples');
-	if (!locals.supabase) return { examples: [] };
+	if (!locals.supabase) return { examples: [], existingCopies: {} };
 
 	const { data, error } = await locals.supabase
 		.from('lessons')
@@ -76,7 +76,29 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// Log defensively rather than silently returning an empty page.
 		console.error('Failed to load onboarding examples:', error.message);
 	}
-	return { examples: data ?? [] };
+
+	// Load-time idempotency signal (prompt.txt Prompt D1 part 2) — this must
+	// be correct on a plain revisit, not just immediately after a fresh
+	// submission, so the page needs to know on every load which examples
+	// this user already has a private copy of. copied_from_lesson_id
+	// (migration 0018) is the lineage column copy_lesson() already writes;
+	// RLS's "owner can view own lessons" branch covers this query.
+	const existingCopies: Record<string, string> = {};
+	if (data && data.length > 0) {
+		const { data: copies } = await locals.supabase
+			.from('lessons')
+			.select('id, copied_from_lesson_id')
+			.eq('owner_id', locals.user.id)
+			.in(
+				'copied_from_lesson_id',
+				data.map((e) => e.id)
+			);
+		for (const copy of copies ?? []) {
+			if (copy.copied_from_lesson_id) existingCopies[copy.copied_from_lesson_id] = copy.id;
+		}
+	}
+
+	return { examples: data ?? [], existingCopies };
 };
 
 /**
@@ -91,17 +113,43 @@ export const load: PageServerLoad = async ({ locals }) => {
  */
 export const actions: Actions = {
 	duplicate: async ({ request, locals }) => {
-		if (!locals.supabase)
+		if (!locals.supabase || !locals.user)
 			return fail(500, {
 				error: 'Accounts are not configured yet.',
 				copiedLessonId: null,
-				sourceLessonId: null
+				sourceLessonId: null,
+				alreadyExisted: false
 			});
 
 		const formData = await request.formData();
 		const lessonId = formData.get('lessonId');
 		if (typeof lessonId !== 'string')
-			return fail(400, { error: 'Missing lesson id.', copiedLessonId: null, sourceLessonId: null });
+			return fail(400, {
+				error: 'Missing lesson id.',
+				copiedLessonId: null,
+				sourceLessonId: null,
+				alreadyExisted: false
+			});
+
+		// Idempotency (prompt.txt Prompt D1 part 1): without this, clicking
+		// "Duplicate and try your own edit" a second time silently created a
+		// second identical private lesson — RLS-scoped to the caller's own
+		// rows, so this can only ever find (or fail to find) their own copy,
+		// never another user's.
+		const { data: existing } = await locals.supabase
+			.from('lessons')
+			.select('id')
+			.eq('owner_id', locals.user.id)
+			.eq('copied_from_lesson_id', lessonId)
+			.maybeSingle();
+		if (existing) {
+			return {
+				error: null,
+				copiedLessonId: existing.id,
+				sourceLessonId: lessonId,
+				alreadyExisted: true
+			};
+		}
 
 		const { data, error } = await locals.supabase.rpc('copy_lesson', {
 			source_lesson_id: lessonId
@@ -110,10 +158,16 @@ export const actions: Actions = {
 			return fail(400, {
 				error: 'Could not copy this example. Please try again.',
 				copiedLessonId: null,
-				sourceLessonId: lessonId
+				sourceLessonId: lessonId,
+				alreadyExisted: false
 			});
 		}
 
-		return { error: null, copiedLessonId: data as string, sourceLessonId: lessonId };
+		return {
+			error: null,
+			copiedLessonId: data as string,
+			sourceLessonId: lessonId,
+			alreadyExisted: false
+		};
 	}
 };
