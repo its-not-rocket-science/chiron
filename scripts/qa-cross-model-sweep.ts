@@ -1150,6 +1150,54 @@ function buildReport(
 		lines.push('');
 	}
 
+	// Judge disagreements — prompt.txt Step 2's explicit "do not silently
+	// discard disagreement between judges ... record both verdicts and flag
+	// it, don't average or pick one." Only meaningful for a transcript
+	// judged by exactly 2 vendors (the 3-vendor rotation design); with
+	// fewer active vendors a transcript has only 1 judge, so there is
+	// nothing to compare.
+	lines.push('## Judge disagreements');
+	lines.push('');
+	lines.push(
+		'Where the two judges of the same transcript gave different verdicts on the same checklist ' +
+			'item, both verdicts are recorded here — neither averaged nor silently picked.'
+	);
+	lines.push('');
+	const verdictsByRun = new Map<string, JudgeVerdictRecord[]>();
+	for (const v of verdicts) {
+		if (!verdictsByRun.has(v.record.runId)) verdictsByRun.set(v.record.runId, []);
+		verdictsByRun.get(v.record.runId)!.push(v);
+	}
+	let disagreementCount = 0;
+	for (const [, pair] of verdictsByRun) {
+		if (pair.length !== 2) continue; // only comparable with exactly 2 judges
+		const [a, b] = pair;
+		const record = a.record;
+		const itemDisagreements = (Object.keys(CHECKLIST_ITEM_LABELS) as (keyof JudgeOutput)[]).filter(
+			(key) => a.output[key].verdict !== b.output[key].verdict
+		);
+		if (itemDisagreements.length === 0) continue;
+		disagreementCount += 1;
+		lines.push(
+			`### ${record.caseTitle} — ${record.personaLabel}${record.injectionVariantLabel ? ` (${record.injectionVariantLabel})` : ''}`
+		);
+		lines.push(
+			`Generator: ${record.generatorVendor}. Judges: ${a.judgeVendor} vs. ${b.judgeVendor}.`
+		);
+		for (const key of itemDisagreements) {
+			lines.push(`- **${CHECKLIST_ITEM_LABELS[key]}**`);
+			lines.push(`  - ${a.judgeVendor}: ${a.output[key].verdict}. Quote: "${a.output[key].quote}"`);
+			lines.push(`  - ${b.judgeVendor}: ${b.output[key].verdict}. Quote: "${b.output[key].quote}"`);
+		}
+		lines.push('');
+	}
+	if (disagreementCount === 0) {
+		lines.push(
+			'None — every transcript judged by two vendors got matching verdicts on every item.'
+		);
+		lines.push('');
+	}
+
 	// Full text of every fail/uncertain transcript item.
 	lines.push('## Flagged transcripts (fail or uncertain on any checklist item)');
 	lines.push('');
