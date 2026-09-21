@@ -122,7 +122,7 @@
 			<button
 				type="submit"
 				disabled={status === 'saving' || !title.trim()}
-				class="self-start rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+				class="self-start rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{status === 'saving' ? 'Saving…' : 'Save'}
 			</button>

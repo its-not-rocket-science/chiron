@@ -9,6 +9,9 @@
 	import SuggestionList from '$lib/components/SuggestionList.svelte';
 	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
 	import HonestyNote from '$lib/components/HonestyNote.svelte';
+	import ReportCard from '$lib/components/ReportCard.svelte';
+	import ReportSection from '$lib/components/ReportSection.svelte';
+	import PillarSummaryStrip from '$lib/components/PillarSummaryStrip.svelte';
 	import type { ActionData, PageProps } from './$types';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
@@ -106,7 +109,7 @@
 						href={example.attribution_url}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-sm font-medium text-indigo-700 underline"
+						class="text-sm font-medium text-brand-text underline"
 					>
 						Source: {example.attribution_name} ↗
 					</a>
@@ -117,28 +120,30 @@
 				{/if}
 			</div>
 
-			<div class="rounded-md bg-slate-50 p-4 text-sm whitespace-pre-wrap text-slate-700">
+			<div
+				class="rounded-md bg-slate-50 p-4 font-serif text-base whitespace-pre-wrap text-slate-700"
+			>
 				{example.lesson_versions?.raw_text ?? ''}
 			</div>
 
 			{#if example.lesson_versions?.scores}
 				{@const scores = example.lesson_versions.scores}
-				<div>
-					<h3 class="mb-3 text-sm font-medium text-slate-800">Pillar scores</h3>
-					<ScoreDisplay score={toScore(scores)} />
-				</div>
-
-				<div>
-					<h3 class="mb-3 text-sm font-medium text-slate-800">Critical-thinking skills</h3>
-					<SkillChecklist skillCoverage={toSkillCoverage(scores.skill_coverage_entries)} />
-				</div>
-
-				{#if scores.suggestions.length > 0}
-					<div>
-						<h3 class="mb-3 text-sm font-medium text-slate-800">Suggestions</h3>
-						<SuggestionList suggestions={toSuggestions(scores.suggestions)} />
-					</div>
-				{/if}
+				<ReportCard>
+					{#snippet summary()}
+						<PillarSummaryStrip score={toScore(scores)} />
+					{/snippet}
+					<ReportSection title="Pillar scores">
+						<ScoreDisplay score={toScore(scores)} />
+					</ReportSection>
+					<ReportSection title="Critical-thinking skills">
+						<SkillChecklist skillCoverage={toSkillCoverage(scores.skill_coverage_entries)} />
+					</ReportSection>
+					{#if scores.suggestions.length > 0}
+						<ReportSection title="Suggestions" accent>
+							<SuggestionList suggestions={toSuggestions(scores.suggestions)} />
+						</ReportSection>
+					{/if}
+				</ReportCard>
 			{/if}
 
 			<HonestyNote />
@@ -166,7 +171,7 @@
 					<button
 						type="submit"
 						disabled={submittingId === example.id}
-						class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+						class="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
 					>
 						{submittingId === example.id ? 'Copying…' : 'Duplicate and try your own edit'}
 					</button>

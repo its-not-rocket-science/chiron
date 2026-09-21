@@ -333,7 +333,7 @@
 			<button
 				type="button"
 				onclick={startSession}
-				class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+				class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 			>
 				Try again
 			</button>
@@ -356,7 +356,7 @@
 				<button
 					type="button"
 					onclick={() => (step = 'scenario')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 				>
 					Begin the investigation
 				</button>
@@ -374,7 +374,7 @@
 				<button
 					type="button"
 					onclick={() => (step = 'claim')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 				>
 					Continue
 				</button>
@@ -394,7 +394,7 @@
 				<button
 					type="button"
 					onclick={() => (step = 'initial_judgment')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 				>
 					Give my initial read
 				</button>
@@ -417,7 +417,7 @@
 					type="button"
 					disabled={!initialJudgment}
 					onclick={() => (step = 'initial_reasoning')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -445,7 +445,7 @@
 					type="button"
 					disabled={!initialReasoning.trim() || submitting}
 					onclick={submitInitialReasoning}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -472,7 +472,7 @@
 					type="button"
 					disabled={submitting}
 					onclick={submitInitialConfidence}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -503,7 +503,7 @@
 					type="button"
 					disabled={!updateCriterionText.trim() || submitting}
 					onclick={submitUpdateCriterion}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -538,7 +538,7 @@
 					type="button"
 					disabled={!challengeResponse.trim() || submitting}
 					onclick={submitChallengeResponse}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Respond
 				</button>
@@ -568,7 +568,7 @@
 					type="button"
 					disabled={!revisedJudgment}
 					onclick={() => (step = 'revised_reasoning')}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -595,7 +595,7 @@
 					type="button"
 					disabled={!revisedReasoning.trim() || submitting}
 					onclick={submitRevisedReasoning}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -623,7 +623,7 @@
 					type="button"
 					disabled={submitting}
 					onclick={submitRevisedConfidence}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Continue
 				</button>
@@ -650,7 +650,7 @@
 					type="button"
 					disabled={!reflectionText.trim() || submitting}
 					onclick={submitReflection}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{submitting ? 'Scoring…' : 'Continue'}
 				</button>
@@ -671,7 +671,7 @@
 					<legend class="sr-only">Rate 1 (not at all) to 5 (very much)</legend>
 					{#each [1, 2, 3, 4, 5] as rating (rating)}
 						<label
-							class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-900"
+							class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 has-[:checked]:border-brand has-[:checked]:bg-brand/10 has-[:checked]:text-brand-dark"
 						>
 							<input
 								type="radio"
@@ -689,7 +689,7 @@
 					type="button"
 					disabled={submitting}
 					onclick={submitDispositionCheckin}
-					class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Finish
 				</button>
@@ -789,7 +789,7 @@
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- base path is resolve()-validated; only the test query VALUE is dynamic -->
 					<a
 						href={`${resolve('/practice/feedback')}?test=${encodeURIComponent(testCohort)}`}
-						class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+						class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 					>
 						Continue to feedback
 					</a>
@@ -797,7 +797,7 @@
 				{:else}
 					<a
 						href={resolve('/practice')}
-						class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+						class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 					>
 						Back to practice cases
 					</a>

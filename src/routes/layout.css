@@ -1,1 +1,24 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
+
+/* docs/DESIGN.md — Public Sans is the default sans (headings/UI chrome,
+   the entire app today) since nothing overrides font-sans anywhere yet;
+   Lora is opt-in via `font-serif` on lesson-body-text blocks specifically. */
+@theme {
+	--font-sans: 'Public Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+	--font-serif: 'Lora', ui-serif, Georgia, serif;
+
+	/* Brand teal — buttons, links, focus rings, ordinal score-bar top step,
+	   chart series 1. -text is a darker step for small text needing 4.5:1
+	   (the base step is 4.2:1, fine for large text/UI, not small body text). */
+	--color-brand: #0e8c6f;
+	--color-brand-text: #0b7a61;
+	--color-brand-dark: #0a6a54;
+	/* Brand gold — accent only (suggestions panel, chart series 2); 3.25:1
+	   on white, large-UI/icon use only, never small body text. */
+	--color-brand-gold: #b8860b;
+	--color-brand-gold-tint: #fbf3e1;
+	/* Darker step for small gold TEXT specifically (5.32:1) — the base
+	   step fails 4.5:1 for small body/button text. */
+	--color-brand-gold-text: #8a6508;
+}

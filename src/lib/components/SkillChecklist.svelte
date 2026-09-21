@@ -20,7 +20,7 @@
 		<li class="flex gap-3">
 			<span
 				class="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-medium"
-				class:bg-slate-800={row.covered}
+				class:bg-brand={row.covered}
 				class:text-white={row.covered}
 				class:bg-slate-100={!row.covered}
 				class:text-slate-400={!row.covered}

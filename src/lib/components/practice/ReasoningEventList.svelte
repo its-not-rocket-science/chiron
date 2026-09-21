@@ -38,7 +38,7 @@
 					<div class="mt-2 flex flex-wrap gap-1.5">
 						{#each event.affectedSkills as skill (skill)}
 							<span
-								class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800"
+								class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand-text"
 							>
 								{SKILL_LABELS[skill] ?? skill}
 							</span>

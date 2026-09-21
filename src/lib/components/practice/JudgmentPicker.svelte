@@ -31,7 +31,7 @@
 	<div class="grid grid-cols-1 gap-2 sm:grid-cols-5">
 		{#each evidenceSupportJudgmentOrder as judgment (judgment)}
 			<label
-				class="flex cursor-pointer items-center justify-center rounded-md border border-slate-300 px-3 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-900 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
+				class="flex cursor-pointer items-center justify-center rounded-md border border-slate-300 px-3 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 has-[:checked]:border-brand has-[:checked]:bg-brand/10 has-[:checked]:text-brand-dark has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
 			>
 				<input
 					type="radio"

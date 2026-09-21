@@ -18,6 +18,9 @@
 	import BeforeAfterView from '$lib/components/BeforeAfterView.svelte';
 	import HonestyNote from '$lib/components/HonestyNote.svelte';
 	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
+	import ReportCard from '$lib/components/ReportCard.svelte';
+	import ReportSection from '$lib/components/ReportSection.svelte';
+	import PillarSummaryStrip from '$lib/components/PillarSummaryStrip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -220,7 +223,7 @@
 							href={data.lesson.attribution_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="ml-2 text-sm font-medium text-indigo-700 underline"
+							class="ml-2 text-sm font-medium text-brand-text underline"
 						>
 							Source: {data.lesson.attribution_name} ↗
 						</a>
@@ -327,7 +330,7 @@
 	{:else if phase === 'scoring'}
 		<p role="status" aria-live="polite" class="text-sm text-slate-600">Scoring your revision…</p>
 	{:else}
-		<div class="rounded-md bg-slate-50 p-4 text-sm whitespace-pre-wrap text-slate-700">
+		<div class="rounded-md bg-slate-50 p-4 font-serif text-base whitespace-pre-wrap text-slate-700">
 			{currentText}
 		</div>
 
@@ -339,22 +342,23 @@
 		{/if}
 
 		{#if currentScoreRow}
-			<div>
-				<h3 class="mb-3 text-sm font-medium text-slate-800">Pillar scores</h3>
-				<ScoreDisplay score={toScore(currentScoreRow)} />
-			</div>
-
-			<div>
-				<h3 class="mb-3 text-sm font-medium text-slate-800">Critical-thinking skills</h3>
-				<SkillChecklist skillCoverage={toSkillCoverage(currentScoreRow.skill_coverage_entries)} />
-			</div>
-
-			{#if currentScoreRow.suggestions.length > 0}
-				<div>
-					<h3 class="mb-3 text-sm font-medium text-slate-800">Suggestions</h3>
-					<SuggestionList suggestions={toSuggestions(currentScoreRow.suggestions)} />
-				</div>
-			{/if}
+			{@const scoreRow = currentScoreRow}
+			<ReportCard>
+				{#snippet summary()}
+					<PillarSummaryStrip score={toScore(scoreRow)} />
+				{/snippet}
+				<ReportSection title="Pillar scores">
+					<ScoreDisplay score={toScore(scoreRow)} />
+				</ReportSection>
+				<ReportSection title="Critical-thinking skills">
+					<SkillChecklist skillCoverage={toSkillCoverage(scoreRow.skill_coverage_entries)} />
+				</ReportSection>
+				{#if scoreRow.suggestions.length > 0}
+					<ReportSection title="Suggestions" accent>
+						<SuggestionList suggestions={toSuggestions(scoreRow.suggestions)} />
+					</ReportSection>
+				{/if}
+			</ReportCard>
 
 			<HonestyNote />
 		{:else}

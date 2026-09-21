@@ -9,6 +9,9 @@
 	import BeforeAfterView from '$lib/components/BeforeAfterView.svelte';
 	import HonestyNote from '$lib/components/HonestyNote.svelte';
 	import SaveLessonForm from '$lib/components/SaveLessonForm.svelte';
+	import ReportCard from '$lib/components/ReportCard.svelte';
+	import ReportSection from '$lib/components/ReportSection.svelte';
+	import PillarSummaryStrip from '$lib/components/PillarSummaryStrip.svelte';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -168,6 +171,7 @@
 	{:else if phase === 'loading'}
 		<p role="status" aria-live="polite" class="text-sm text-slate-600">Scoring your lesson…</p>
 	{:else if phase === 'results' && currentResult}
+		{@const result = currentResult}
 		<section class="flex flex-col gap-8">
 			<div class="flex items-center justify-between">
 				<h2
@@ -186,20 +190,20 @@
 				</div>
 			{/if}
 
-			<div>
-				<h3 class="mb-3 text-sm font-medium text-slate-800">Pillar scores</h3>
-				<ScoreDisplay score={currentResult.score} />
-			</div>
-
-			<div>
-				<h3 class="mb-3 text-sm font-medium text-slate-800">Critical-thinking skills</h3>
-				<SkillChecklist skillCoverage={currentResult.skillCoverage} />
-			</div>
-
-			<div>
-				<h3 class="mb-3 text-sm font-medium text-slate-800">Suggestions</h3>
-				<SuggestionList suggestions={currentResult.suggestions} />
-			</div>
+			<ReportCard>
+				{#snippet summary()}
+					<PillarSummaryStrip score={result.score} />
+				{/snippet}
+				<ReportSection title="Pillar scores">
+					<ScoreDisplay score={result.score} />
+				</ReportSection>
+				<ReportSection title="Critical-thinking skills">
+					<SkillChecklist skillCoverage={result.skillCoverage} />
+				</ReportSection>
+				<ReportSection title="Suggestions" accent>
+					<SuggestionList suggestions={result.suggestions} />
+				</ReportSection>
+			</ReportCard>
 
 			<HonestyNote />
 
@@ -222,7 +226,7 @@
 				<button
 					type="button"
 					onclick={handleRevise}
-					class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					class="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 				>
 					Revise &amp; resubmit
 				</button>

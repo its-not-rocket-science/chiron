@@ -8,8 +8,10 @@
 
 	let { score }: Props = $props();
 
-	// Neutral intensity scale, not red/green — this is formative feedback, not a pass/fail grade.
-	const BAR_COLOR = ['bg-slate-200', 'bg-indigo-300', 'bg-indigo-500', 'bg-indigo-700'];
+	// Neutral intensity scale, not red/green — this is formative feedback,
+	// not a pass/fail grade (unchanged decision, docs/DESIGN.md just
+	// re-steps it onto the brand teal instead of generic indigo).
+	const BAR_COLOR = ['bg-slate-200', 'bg-brand/30', 'bg-brand/65', 'bg-brand'];
 
 	const rows = $derived(
 		(

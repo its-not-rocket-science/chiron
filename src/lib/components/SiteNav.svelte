@@ -41,7 +41,7 @@
 	<div class="mx-auto flex max-w-2xl items-center justify-between px-6 py-3">
 		<a
 			href={resolve('/')}
-			class="rounded font-semibold text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none"
+			class="rounded font-semibold text-slate-900 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
 		>
 			Chiron
 		</a>
@@ -50,7 +50,7 @@
 			primary nav below it (D3 point 1) — shown only below md. -->
 		<button
 			type="button"
-			class="rounded p-1.5 text-slate-600 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none md:hidden"
+			class="rounded p-1.5 text-slate-600 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none md:hidden"
 			aria-expanded={mobileMenuOpen}
 			aria-controls="mobile-menu"
 			aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -93,7 +93,7 @@
 			{#if user}
 				<details class="relative">
 					<summary
-						class="cursor-pointer list-none rounded px-2 py-1 text-slate-600 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+						class="cursor-pointer list-none rounded px-2 py-1 text-slate-600 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 					>
 						{user.email}
 					</summary>
@@ -127,10 +127,10 @@
 				<a
 					href={resolve(link.href)}
 					aria-current={isActive(link.href) ? 'page' : undefined}
-					class="border-b-2 py-2.5 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none {isActive(
+					class="border-b-2 py-2.5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none {isActive(
 						link.href
 					)
-						? 'border-slate-900 font-medium text-slate-900'
+						? 'border-brand font-medium text-brand-text'
 						: 'border-transparent text-slate-600 hover:text-slate-900'}"
 				>
 					{link.label}
@@ -149,10 +149,10 @@
 						href={resolve(link.href)}
 						aria-current={isActive(link.href) ? 'page' : undefined}
 						onclick={closeMobileMenu}
-						class="rounded px-2 py-2 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none {isActive(
+						class="rounded px-2 py-2 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none {isActive(
 							link.href
 						)
-							? 'font-medium text-slate-900'
+							? 'font-medium text-brand-text'
 							: 'text-slate-600 hover:text-slate-900'}"
 					>
 						{link.label}

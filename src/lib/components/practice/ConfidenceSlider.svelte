@@ -23,7 +23,7 @@
 		bind:value
 		{disabled}
 		aria-valuetext={`${value} percent confident`}
-		class="w-full accent-indigo-600 disabled:opacity-60"
+		class="w-full accent-brand disabled:opacity-60"
 	/>
 	<div class="flex justify-between text-xs text-slate-400">
 		<span>Not confident at all</span>

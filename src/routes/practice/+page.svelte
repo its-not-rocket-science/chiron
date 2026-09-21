@@ -45,14 +45,14 @@
 				</div>
 				<div class="mt-2 flex flex-wrap gap-1.5">
 					{#each practiceCase.skillTags as skill (skill)}
-						<span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800">
+						<span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand-text">
 							{SKILL_LABELS[skill] ?? skill}
 						</span>
 					{/each}
 				</div>
 				<a
 					href={resolve('/practice/[caseId]', { caseId: practiceCase.id })}
-					class="mt-3 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+					class="mt-3 inline-block rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 				>
 					Start investigation
 				</a>

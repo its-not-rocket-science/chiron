@@ -109,7 +109,7 @@
 		</div>
 		<button
 			type="submit"
-			class="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+			class="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark"
 		>
 			Filter
 		</button>

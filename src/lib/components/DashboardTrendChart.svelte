@@ -39,20 +39,30 @@
 	<h4 class="mb-1 text-xs font-medium text-slate-600">{label}</h4>
 	<svg viewBox="0 0 {width} {height}" class="h-24 w-full" role="img" aria-label={ariaLabel}>
 		{#if benchmarkY !== null}
+			<!-- docs/DESIGN.md — chart series 2 (org benchmark): brand gold,
+				validated as a categorical pair against series 1's teal
+				(dataviz skill validate_palette.js: CVD ΔE 10.0 protan, 18.9
+				normal-vision — both clear the ≥8/≥15 targets). -->
 			<line
 				x1={paddingX}
 				y1={benchmarkY}
 				x2={width - paddingX}
 				y2={benchmarkY}
-				stroke="#f59e0b"
+				stroke="var(--color-brand-gold)"
 				stroke-width="1.5"
 				stroke-dasharray="4 3"
 			/>
 		{/if}
 		{#if values.length > 0}
-			<polyline {points} fill="none" stroke="#0f172a" stroke-width="2" />
+			<!-- Chart series 1 (this teacher's own trend): brand teal. -->
+			<polyline {points} fill="none" stroke="var(--color-brand)" stroke-width="2" />
 			{#each values as value, index (index)}
-				<circle cx={scaleX(index, values.length)} cy={scaleY(value)} r="2.5" fill="#0f172a" />
+				<circle
+					cx={scaleX(index, values.length)}
+					cy={scaleY(value)}
+					r="2.5"
+					fill="var(--color-brand)"
+				/>
 			{/each}
 		{:else}
 			<text x={width / 2} y={height / 2} text-anchor="middle" class="fill-slate-400 text-[10px]"

@@ -49,13 +49,15 @@
 								<span>{item.text}</span>
 							</div>
 							{#if item.suggestedScriptSwap}
-								<div class="ml-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+								<div
+									class="ml-4 rounded-md border border-brand-gold/30 bg-brand-gold-tint px-3 py-2"
+								>
 									<pre
-										class="mb-2 font-sans text-xs whitespace-pre-wrap text-amber-900">{item.suggestedScriptSwap}</pre>
+										class="mb-2 font-sans text-xs whitespace-pre-wrap text-slate-800">{item.suggestedScriptSwap}</pre>
 									<button
 										type="button"
 										onclick={() => copyScriptSwap(item)}
-										class="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+										class="rounded border border-brand-gold/40 bg-white px-2 py-1 text-xs font-medium text-brand-gold-text hover:bg-brand-gold-tint"
 									>
 										{copiedId === item.id ? 'Copied!' : 'Copy to clipboard'}
 									</button>

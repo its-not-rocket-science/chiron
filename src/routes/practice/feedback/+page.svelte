@@ -107,7 +107,7 @@
 		</p>
 		<a
 			href={resolve('/practice')}
-			class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+			class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
 		>
 			Back to practice cases
 		</a>
@@ -119,7 +119,7 @@
 					<div class="flex gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<label
-								class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-900"
+								class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 has-[:checked]:border-brand has-[:checked]:bg-brand/10 has-[:checked]:text-brand-dark"
 							>
 								<input
 									type="radio"
@@ -257,7 +257,7 @@
 			<button
 				type="submit"
 				disabled={!canSubmit || submitting}
-				class="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+				class="self-start rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{submitting ? 'Submitting…' : 'Submit feedback'}
 			</button>
