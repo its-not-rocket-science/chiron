@@ -1,5 +1,7 @@
 # Chiron
 
+[![CI](https://github.com/its-not-rocket-science/chiron/actions/workflows/ci.yml/badge.svg)](https://github.com/its-not-rocket-science/chiron/actions/workflows/ci.yml)
+
 Evidence-based critical-thinking coach for teachers. Scores lesson plans
 against a peer-reviewed three-pillar rubric (dialogue, authentic/situated
 problems, mentoring — Abrami et al., 2015) and a six-skill critical-
