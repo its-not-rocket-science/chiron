@@ -12,6 +12,17 @@
 			submitting = false;
 		};
 	}
+
+	// prompt.txt Prompt F4: the sole-admin guard is enforced server-side
+	// (remove_member/change_member_role/leave_org, migration 0020) — this is
+	// purely so the UI can disable and explain the blocked action up front,
+	// per the prompt's own instruction, rather than only failing after
+	// submit.
+	let adminCount = $derived((data.members ?? []).filter((m) => m.role === 'admin').length);
+	function isSoleAdmin(role: 'admin' | 'teacher') {
+		return role === 'admin' && adminCount === 1;
+	}
+	let ownMembership = $derived((data.members ?? []).find((m) => m.user_id === data.user?.id));
 </script>
 
 <svelte:head>
@@ -53,27 +64,94 @@
 			</p>
 		</header>
 
+		<!-- One shared slot for every action's error on this page (create/invite/
+			revoke/toggleFeatured/removeMember/changeRole/leaveOrg all share the
+			same `form` prop) — placed here, above every section, so it's visible
+			regardless of which action produced it, including leaveOrg for a
+			non-admin who has no "Invite a teacher" section to show it in. -->
+		{#if form?.error}
+			<p role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+				{form.error}
+			</p>
+		{/if}
+
 		<section>
 			<h2 class="mb-3 text-sm font-medium text-slate-800">Members</h2>
-			<ul class="flex flex-col gap-1.5 text-sm text-slate-600">
+
+			<ul class="flex flex-col gap-2 text-sm text-slate-600">
 				{#each data.members ?? [] as member (member.id)}
-					<li>
-						{member.profiles_public?.display_name} —
-						<span class="text-slate-400">{member.role}</span>
+					{@const soleAdmin = isSoleAdmin(member.role)}
+					<li
+						class="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2"
+					>
+						<span>
+							{member.profiles_public?.display_name} —
+							<span class="text-slate-400">{member.role}</span>
+						</span>
+
+						{#if data.isAdmin}
+							<div class="flex items-center gap-3">
+								{#if soleAdmin}
+									<span class="text-xs text-slate-400">only admin — promote someone else first</span
+									>
+								{:else}
+									<form method="POST" action="?/changeRole" use:enhance={wrapEnhance}>
+										<input type="hidden" name="targetUserId" value={member.user_id} />
+										<input
+											type="hidden"
+											name="newRole"
+											value={member.role === 'admin' ? 'teacher' : 'admin'}
+										/>
+										<button
+											type="submit"
+											disabled={submitting}
+											class="text-xs text-slate-500 underline hover:text-slate-800 disabled:opacity-50"
+										>
+											{member.role === 'admin' ? 'Demote to teacher' : 'Promote to admin'}
+										</button>
+									</form>
+									<form method="POST" action="?/removeMember" use:enhance={wrapEnhance}>
+										<input type="hidden" name="targetUserId" value={member.user_id} />
+										<button
+											type="submit"
+											disabled={submitting}
+											class="text-xs text-slate-500 underline hover:text-slate-800 disabled:opacity-50"
+										>
+											Remove
+										</button>
+									</form>
+								{/if}
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
+		</section>
+
+		<section>
+			<h2 class="mb-3 text-sm font-medium text-slate-800">Leave organization</h2>
+			{#if ownMembership && isSoleAdmin(ownMembership.role)}
+				<p class="text-sm text-slate-500">
+					You're the only admin of this org — promote another member to admin, or delete the
+					organization, before leaving.
+				</p>
+			{:else}
+				<form method="POST" action="?/leaveOrg" use:enhance={wrapEnhance}>
+					<button
+						type="submit"
+						disabled={submitting}
+						class="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+					>
+						Leave this organization
+					</button>
+				</form>
+			{/if}
 		</section>
 
 		{#if data.isAdmin}
 			<section>
 				<h2 class="mb-3 text-sm font-medium text-slate-800">Invite a teacher</h2>
 
-				{#if form?.error}
-					<p role="alert" class="mb-3 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
-						{form.error}
-					</p>
-				{/if}
 				{#if form?.inviteLink}
 					<p
 						role="status"

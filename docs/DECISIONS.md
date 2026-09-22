@@ -1970,3 +1970,60 @@ is exactly the kind of security-relevant coverage that belongs in
 `fast`, not behind live credentials.
 
 ---
+
+## ADR-029: Org member management — a sole admin is blocked from self-demoting/removing/leaving, never auto-promoted
+
+**Date:** 2026-09-22
+**Status:** Accepted
+
+**Decision:** `prompt.txt` Prompt F4's `remove_member`, `change_member_role`,
+and `leave_org` (`supabase/migrations/0020_org_member_management.sql`) all
+share one guard, `public.is_sole_admin_of_own_org`: an action that would
+leave an org with zero admins is rejected outright, with a clear error
+telling the caller to promote someone else first (or delete the org). None
+of the three ever reaches for a fallback like auto-promoting the
+longest-tenured teacher, the alphabetically-first member, or any other
+implicit choice.
+
+**Why:** Picking who becomes the new admin on the org's behalf is a real
+judgment call with no neutral default — there's no criterion (tenure,
+role, invite order) that's obviously "correct" on the org's behalf, and
+getting it wrong silently hands admin rights to whichever member happened
+to match the heuristic. A human decision (the departing admin explicitly
+choosing a successor before leaving, or a future org-deletion flow) is
+the only version of this that reflects actual intent. Blocking and
+explaining is also the cheaper failure mode: an admin who hits the guard
+loses a few seconds re-reading the message and clicking "Promote to
+admin" first; an org that's silently handed a new, possibly-unwanted
+admin has no comparably cheap undo.
+
+**Alternatives considered:**
+
+- **Auto-promote the next member** (oldest membership, or the only other
+  member if there's exactly one): rejected for the reason above — it's a
+  guess dressed up as a default, and wrong exactly when it matters (a
+  multi-member org with several plausible successors).
+- **Allow the org to go adminless, and let the next admin-only feature
+  (invite, feature-toggle, future member-management itself) simply fail
+  for everyone**: rejected — this project's own admin-only actions
+  already reject cleanly today (`is_org_admin` returns false for every
+  member), but a permanently adminless org is unrecoverable through the
+  app itself (nothing in this codebase can grant the first admin back),
+  which is a worse failure than a pre-emptive block.
+- **A `SUPERADMIN`/site-operator escape hatch that can force-assign a new
+  admin**: no such role or mechanism exists anywhere else in this
+  codebase (orgs are fully self-service — ADR-009's shareable-invite-link
+  design is the same philosophy), and inventing one only for this edge
+  case would be new, unreviewed surface area for a problem the guard
+  already prevents from occurring.
+
+**Consequences:** A departing sole admin has one extra required step
+(promote a co-admin, or in the future, delete the org) before they can
+leave or demote themselves — a small, deliberate friction, not an
+oversight. There is currently no "delete an org" action anywhere in this
+codebase (`leave_org`'s own error message references it as the other
+valid way out, matching Prompt F4's own wording, but implementing it is
+out of this prompt's scope) — an org with a sole admin who wants to shut
+it down entirely still needs that built separately.
+
+---

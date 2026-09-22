@@ -413,6 +413,57 @@ Full verification standard (`npm run check && npm run lint && npm test
 530 passing (same pre-existing `SupabaseDataStore` environment artifact
 as before, not a new defect).
 
+### CI, privacy/terms, password reset, org member management (`prompt.txt`, 2026-09-22)
+
+Four prompts (F1–F4), built in the order the prompt itself recommended
+(F1 first so everything after lands through a real gate).
+
+- **F1 — CI pipeline.** `.github/workflows/ci.yml`: a `fast` job (check,
+  lint, test, build; no credentials — real signal for a fork PR too) on
+  every push/PR, a `live` job (the RLS/adversarial and live-provider
+  suites) gated to push-to-main + manual dispatch only, never
+  `pull_request` (ADR-028 — cost and PR-spend-abuse risk). Found and
+  fixed a real bug while wiring it: `checkRateLimit()`'s "fails open"
+  promise was broken by a synchronous throw escaping its own
+  `try`/`catch`. README badge added once `live` was confirmed green on
+  a real run.
+- **F2 — privacy/terms pages.** `/privacy` and `/terms`, content
+  verified against the real codebase (what's collected, who processes
+  it — DeepSeek, not Anthropic, per ADR-008 — what's logged), and
+  deliberately silent on data retention and applicable regulation —
+  both still open governance items, not this prompt's to invent. TODO
+  -with-owner added below.
+- **F3 — password reset.** `/forgot-password` + `/reset-password` via
+  Supabase's `resetPasswordForEmail`/`updateUser`, reusing the root
+  layout's existing `exchangeCodeForSession` handling rather than a
+  second copy. The forgot-password action discards its result
+  unconditionally so it can't leak whether an email is registered —
+  proven deterministically (page.server.spec.ts) rather than against
+  live, rate-limited email sending, which this project's own Supabase
+  mailer hit during development.
+- **F4 — org member management.** Three new admin-only actions
+  (`removeMember`, `changeRole`, `leaveOrg`) backed by three new
+  `SECURITY DEFINER` functions (`supabase/migrations/0020_org_member_
+management.sql`) — `memberships` has no client-facing UPDATE/DELETE
+  policy at all, so these follow `create_org`/`accept_org_invite`'s
+  existing precedent rather than adding one (adding one would re-open
+  the exact self-referencing RLS recursion ADR-010 already fixed once
+  on this table). A single sole-admin guard blocks self-remove/
+  self-demote/leave when it would zero out an org's admin count —
+  "block," not "auto-promote," a real design choice recorded in
+  ADR-029. 13 new live adversarial tests
+  (`tests/rls/orgMemberManagement.spec.ts`), including a check that a
+  removed member's org-shared lesson stays in the org's library
+  (verified against how `lessons.owner_id`/`org_id` actually reference
+  other tables, not assumed).
+
+Full verification standard green after each of the four; live suites
+run against the real Supabase project and real DeepSeek API. F1's
+`live` CI job, and F2–F4's manual live-Supabase test runs, all
+confirmed green — F4's UI additionally walked through live in a real
+browser (promote/demote/remove, and the sole-admin-blocked state) using
+a disposable fixture org, not the developer's own account.
+
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
 - `prompts.txt` Prompt 37 (real-user-test analysis) — explicitly

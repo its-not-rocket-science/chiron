@@ -10,6 +10,7 @@ interface MembershipWithOrg {
 
 interface MemberRow {
 	id: string;
+	user_id: string;
 	role: 'admin' | 'teacher';
 	profiles_public: { display_name: string } | null;
 }
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [membersResult, invitesResult, lessonsResult] = await Promise.all([
 		supabase
 			.from('memberships')
-			.select('id, role, profiles_public(display_name)')
+			.select('id, user_id, role, profiles_public(display_name)')
 			.eq('org_id', membership.org_id)
 			.returns<MemberRow[]>(),
 		isAdmin
@@ -164,6 +165,59 @@ export const actions: Actions = {
 		if (error || !data || data.length === 0) {
 			return fail(403, { error: 'Could not update that lesson. Are you an org admin?' });
 		}
+
+		return { success: true };
+	},
+
+	// removeMember/changeRole/leaveOrg (prompt.txt Prompt F4): `memberships`
+	// has no client-facing UPDATE/DELETE policy at all (only the 0001/0002
+	// SELECT policy) — unlike revokeInvite/toggleFeatured above, which lean
+	// on RLS + a zero-rows check, these three go through the
+	// remove_member/change_member_role/leave_org SECURITY DEFINER functions
+	// (supabase/migrations/0020_org_member_management.sql), matching how
+	// create_org/accept_org_invite already write into this table. The admin
+	// check and the sole-admin guard both live server-side in those
+	// functions, not just in this action or the UI — a direct RPC call
+	// bypassing this route is still blocked the same way.
+	removeMember: async ({ request, locals }) => {
+		if (!locals.supabase) return fail(500, { error: 'Accounts are not configured yet.' });
+
+		const formData = await request.formData();
+		const targetUserId = formData.get('targetUserId');
+		if (typeof targetUserId !== 'string') return fail(400, { error: 'Missing member id.' });
+
+		const { error } = await locals.supabase.rpc('remove_member', {
+			target_user_id: targetUserId
+		});
+		if (error) return fail(400, { error: error.message });
+
+		return { success: true };
+	},
+
+	changeRole: async ({ request, locals }) => {
+		if (!locals.supabase) return fail(500, { error: 'Accounts are not configured yet.' });
+
+		const formData = await request.formData();
+		const targetUserId = formData.get('targetUserId');
+		const newRole = formData.get('newRole');
+		if (typeof targetUserId !== 'string' || (newRole !== 'admin' && newRole !== 'teacher')) {
+			return fail(400, { error: 'Missing member id or role.' });
+		}
+
+		const { error } = await locals.supabase.rpc('change_member_role', {
+			target_user_id: targetUserId,
+			new_role: newRole
+		});
+		if (error) return fail(400, { error: error.message });
+
+		return { success: true };
+	},
+
+	leaveOrg: async ({ locals }) => {
+		if (!locals.supabase) return fail(500, { error: 'Accounts are not configured yet.' });
+
+		const { error } = await locals.supabase.rpc('leave_org');
+		if (error) return fail(400, { error: error.message });
 
 		return { success: true };
 	}
