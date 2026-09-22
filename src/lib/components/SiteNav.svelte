@@ -103,6 +103,12 @@
 						<a href={resolve('/account/org')} class="px-3 py-1.5 text-slate-700 hover:bg-slate-50"
 							>My org</a
 						>
+						<a href={resolve('/privacy')} class="px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+							>Privacy</a
+						>
+						<a href={resolve('/terms')} class="px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+							>Terms</a
+						>
 						<form method="POST" action="/logout">
 							<button
 								type="submit"
@@ -163,6 +169,16 @@
 					href={resolve('/account/org')}
 					onclick={closeMobileMenu}
 					class="rounded px-2 py-2 text-slate-600 hover:text-slate-900">My org</a
+				>
+				<a
+					href={resolve('/privacy')}
+					onclick={closeMobileMenu}
+					class="rounded px-2 py-2 text-slate-600 hover:text-slate-900">Privacy</a
+				>
+				<a
+					href={resolve('/terms')}
+					onclick={closeMobileMenu}
+					class="rounded px-2 py-2 text-slate-600 hover:text-slate-900">Terms</a
 				>
 				<span class="px-2 py-1 text-xs text-slate-400">{user.email}</span>
 				<form method="POST" action="/logout">

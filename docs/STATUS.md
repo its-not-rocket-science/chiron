@@ -139,6 +139,18 @@ Both are recorded here deliberately, not folded into "known technical
 debt" above — they're policy decisions Chiron is blocked on, not
 engineering work Chiron could just go do.
 
+- **`/privacy` and `/terms` need real legal/product review before
+  handling real student data at any scale** (`prompt.txt` Prompt F2,
+  added 2026-09-22). The pages themselves (`src/routes/privacy`,
+  `src/routes/terms`) are honest and accurate against the real code as
+  of this date — what's collected, who processes it, what's logged —
+  and deliberately don't state a retention period or claim compliance
+  with a specific regulation, for the same reason as the two items
+  above. That accuracy is not a substitute for review by whoever owns
+  legal/product for Chiron. **Owner: unassigned — needs a decision from
+  whoever owns Chiron's legal/product function** before either page is
+  relied on for a real deployment.
+
 - **Onboarding-example content licensing** (`prompts-onboarding-
 examples.txt`, `docs/CONTENT_LICENSING.md`). Quarterly re-check run
   2026-09-21 (`docs/CONTENT_LICENSING.md`'s "Re-check log"): OpenSciEd

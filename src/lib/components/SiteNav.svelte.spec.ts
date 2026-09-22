@@ -12,6 +12,18 @@ describe('SiteNav (prompt.txt Prompt D3)', () => {
 		await expect.element(screen.getByRole('link', { name: 'My lessons' })).toBeInTheDocument();
 	});
 
+	it('links to Privacy and Terms from the account menu (prompt.txt Prompt F2)', async () => {
+		const screen = await render(SiteNav, { user });
+
+		// The account menu is a closed <details> until its <summary> (the
+		// user's email) is clicked — its contents aren't in the a11y tree
+		// (and so not queryable by role) until then.
+		await screen.getByText(user.email).click();
+
+		await expect.element(screen.getByRole('link', { name: 'Privacy' })).toBeInTheDocument();
+		await expect.element(screen.getByRole('link', { name: 'Terms' })).toBeInTheDocument();
+	});
+
 	it('marks the current page active with aria-current, not just visually', async () => {
 		const screen = await render(SiteNav, { user });
 
