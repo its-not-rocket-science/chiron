@@ -41,7 +41,12 @@
 			/>
 		</div>
 		<div>
-			<label for="password" class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+			<div class="mb-1 flex items-center justify-between">
+				<label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+				<a href={resolve('/forgot-password')} class="text-sm text-slate-500 underline"
+					>Forgot password?</a
+				>
+			</div>
 			<input
 				id="password"
 				name="password"

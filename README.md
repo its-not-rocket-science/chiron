@@ -55,6 +55,24 @@ of them fix a real, adversarially-discovered issue in the one before it
 app still boots and scores lessons — signup/login/org/library routes
 will show a clear "not configured" state instead of crashing.
 
+Two things below can only be set from the Supabase dashboard, not from
+this codebase — done once per project:
+
+- **Redirect URLs allowlist** (Authentication > URL Configuration): add
+  your deployment's origin (e.g. `https://your-app.example.com`, plus
+  `http://localhost:5173` for local dev). Signup's email confirmation
+  and `/forgot-password`'s reset link (Prompt F3) both redirect back
+  into the app via a same-site path — Supabase silently falls back to
+  the project's default Site URL instead of the requested path if the
+  target isn't on this allowlist, so a real deployment needs its origin
+  added or that flow lands somewhere unexpected.
+- **Email templates** (Authentication > Email Templates): the default
+  "Reset Password" template's action link works as-is with the flow
+  above, but if it's ever customized, its link must keep pointing at
+  `{{ .SiteURL }}/reset-password?code={{ .TokenHash }}`-shaped output
+  (Supabase's own `{{ .ConfirmationURL }}` variable already does this)
+  for `/reset-password` to receive a valid code.
+
 ## Scripts
 
 | Command             | What it does                         |
