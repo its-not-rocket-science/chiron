@@ -33,6 +33,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # vitest-browser-svelte's `client` project drives real Playwright
+      # Chromium (docs/ARCHITECTURE.md Section 8 — "not jsdom"), which
+      # `npm ci` alone doesn't provide: the `playwright` package installs,
+      # but its actual browser binary is a separate download. Found by
+      # actually running this workflow, not assumed — the first real run
+      # failed here.
+      - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm run lint
       # Deliberately no Supabase/vendor secrets in this job — confirms the
@@ -55,6 +62,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm test
         env:
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
