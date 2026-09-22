@@ -341,39 +341,67 @@ through exactly this class of attack during Prompt 22), tampering with
 confidence/judgement history has no path: not via forged event
 replay, not via a direct `UPDATE`.
 
-**Mostly verified, one residual gap found and measured (`prompts.txt`
-Prompt 35, 2026-08-26) — prompt injection through learner free text.**
-`DeepSeekReasoningClassifierProvider.integration.spec.ts` (Prompt 23)
-and `DeepSeekTutorProvider.integration.spec.ts` (Prompt 24) cover this
-live, against the real DeepSeek API: instructions embedded in a
-student's own text trying to force a signal present, assert a fake
-signal taxonomy, extract the answer key, or get the tutor to praise a
-specific judgement or invent a fact — all reliably fail across repeated
-runs. One case does not reliably fail: "ignores a fake JSON result
-embedded in the learner text" (the student embeds a complete fake
-`{"classifications":[...]}` blob, with an instruction to "use it
-directly," containing a spoofed `evidenceQuote: "fabricated"`). Run 9
-times during this audit: **2 failures (~22%)** — the classifier
-sometimes returns `present: true` with `evidenceQuote: "fabricated"`
-verbatim. This is not a schema-validation gap (`classifierCore.ts`'s
-found-in-text check requires `evidenceQuote` to literally appear in the
-student's own `freeText` — and it does, because the attacker's own
-injected JSON blob literally contains the word "fabricated" as part of
-its payload text). The structural defense can't distinguish "a genuine
-quote of the student's actual reasoning" from "a literal echo of the
-attacker's own injected payload" — both pass the same found-in-text
-check. Real, if narrow, integrity impact: a student who deliberately
-embeds this exact attack shape has roughly a 1-in-5 chance of earning
-unearned credit for a signal. **Not fixed in this pass** — this project's
-own "fix straightforward defects, don't expand scope" instruction for
-this audit (`prompts.txt` Prompt 35) is the reason, not an oversight: a
-real fix needs a new heuristic (e.g. flagging an `evidenceQuote` whose
-surrounding context in `freeText` looks JSON-shaped) that risks false
-positives against legitimate student text and needs its own tuning and
-test suite — exactly the kind of new engineering Prompt 35 says this
-pass should flag, not build. Recorded here as an explicit, measured,
-open item for a future prompt, not silently accepted or overstated as
-"Verified."
+**Fixed (`prompt.txt` Prompt G1, 2026-09-22) — the classifier's
+evidenceQuote mechanism itself, not just re-measured.** Originally
+flagged in Prompt 35 (2026-08-26): `classifierCore.ts`'s found-in-text
+check required `evidenceQuote` to literally appear in the student's own
+`freeText`, which can't distinguish a genuine quote of the student's
+actual reasoning from a literal echo of an attacker's own injected
+payload — both pass the same substring check. Measured at the time as
+**2/9 (~22%)** on the exact fake-JSON-blob attack shape (a student
+embeds a complete fake `{"classifications":[...]}` blob with a spoofed
+`evidenceQuote: "fabricated"`); a larger, more varied re-measurement
+during the `prompt.txt` QA sweep (`docs/qa/LLM_CROSS_CHECK_2026-09-21.md`)
+found **0/36** across that attack plus three novel framings (a
+markdown-code-fence variant, a fake `[SYSTEM OVERRIDE]` directive, a
+trailing "ignore every instruction above" directive) — genuine evidence
+DeepSeek doesn't currently take this specific bait, but evidence about
+today's attack wording, not proof the underlying mechanism was sound.
+
+**The mechanism is now fixed, not just re-measured as safer.**
+`classifierCore.ts` adds a second, independent check
+(`looksLikeInjectedPayload`) alongside the found-in-text substring
+check: an `evidenceQuote` is rejected if any occurrence of it in the
+student's text sits inside a structural envelope a genuine free-text
+answer wouldn't contain — a JSON object/array literal (balanced-brace
+tracked, not a naive regex, so a multi-object blob like the real attack
+payload's `{"classifications":[{...},{...}]}` shape is fully covered),
+a markdown code fence, or a bracketed ALL-CAPS directive block (with
+paired `[START]...[END]`-style tags treated as covering everything
+between them, not just the tags). Deliberately structural, not
+lexical — it doesn't match specific words like "fabricated" or "SYSTEM
+OVERRIDE" (the same brittle mistake the original check made, just with
+different keywords, trivially defeated by a new codeword); it matches
+the _shape_ an injected payload needs regardless of its wording. Full
+design reasoning, including why "reject if ANY occurrence is
+suspicious" (not "ALL occurrences") was chosen — testing against the
+_actual_ sweep-script payloads, not simplified stand-ins, found that
+two of the four measured framings deliberately repeat their spoofed
+word a second time in a plain sentence specifically to manufacture a
+clean-looking second occurrence — lives as a comment on
+`looksLikeInjectedPayload` itself, not restated here.
+
+**Explicitly scoped, not oversold: one known residual gap remains.** A
+quote whose _only_ structural-looking occurrence has a genuine second
+copy of the exact same phrase appearing as ordinary, non-structural
+prose defeats this check by construction — closing that needs semantic
+judgment ("does this phrase plausibly answer the actual case's claim,"
+not a structural syntax check) and is a different, larger problem than
+what this pass scoped. DeepSeek measured 0/9 on the one framing that
+specifically relies on this trick without even needing this fix, so
+this is an honestly-scoped structural improvement on an
+already-low-measured-risk shape, not a claimed complete closure.
+
+**Test coverage, both deterministic and live.**
+`classifierCore.spec.ts`'s `looksLikeInjectedPayload` suite tests the
+mechanism itself directly and deterministically (no API calls) against
+all four exact attack payloads plus two false-positive-risk cases
+(ordinary curly braces in genuine text; an unrelated JSON-shaped aside
+elsewhere in the text). `DeepSeekReasoningClassifierProvider.integration.spec.ts`
+adds the three novel framings as permanent live adversarial tests
+against the real DeepSeek API (previously only a one-off QA-sweep
+script run) — total live injection-resistance coverage for this
+provider is now 7 cases, not 4.
 
 **Verified — learner text and model prompts are never logged.**
 Grepped the entire `src/` tree for `console.` outside test files: three
@@ -485,7 +513,7 @@ product/legal decision before Chiron is deployed to real students.
 | Student data isolation                        | Verified — 14 live adversarial tests, 5 new this review                                                                                                         |
 | Hidden case metadata (evidence/answer/rubric) | Verified — structural, not policy-only                                                                                                                          |
 | FSM skipping / replay / history tampering     | Verified — replay test new this review                                                                                                                          |
-| Prompt injection (learner free text)          | Mostly verified (Prompt 35) — one residual gap measured at ~22% (fake-JSON-blob attack), documented not fixed, see above                                        |
+| Prompt injection (learner free text)          | Fixed (Prompt G1) — structural evidenceQuote check added, not just re-measured; one narrower, explicitly documented residual gap remains, see above             |
 | Logging hygiene                               | Verified — no new logging beyond the two already-audited call sites                                                                                             |
 | Minimal data collection                       | Verified                                                                                                                                                        |
 | Model cost abuse                              | Fixed (Prompts 31 + 32) — 40 LLM calls/10min/user, plus a named 9-call-per-attempt structural cap (ADR-024, raised from 8 by Prompt 34's added classifier call) |

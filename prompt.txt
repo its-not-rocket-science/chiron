@@ -1,211 +1,278 @@
 ================================================================================
-CHIRON — CI pipeline, privacy/terms pages, password reset, org member management
+CHIRON — Next batch: G1-G6
 ================================================================================
 
-GROUNDING — confirmed before writing these
---------------------------------------------
-Checked directly: no .github/workflows directory exists at all (every
-test/lint/build claim in docs/STATUS.md has been true because an agent
-ran the real commands and reported honestly, with no gate enforcing it
-on push/PR); no privacy or terms page or doc exists anywhere; no
-password-reset or forgot-password route exists; org management
-(src/routes/account/org/+page.server.ts) has createOrg, invite,
-revokeInvite (revokes a pending invite only), and toggleFeatured — no
-action to remove an existing member, change a role, or transfer admin.
-Confirmed package.json script names to use exactly: npm run check, npm
-run lint, npm test, npm run build. Confirmed the adapter is
-@sveltejs/adapter-vercel and auth is Supabase (signInWithPassword is
-the existing pattern in src/routes/login/+page.server.ts — match it).
+WHAT I'M DELIBERATELY NOT INCLUDING, AND WHY
+------------------------------------------------
+- More practice cases. Prompt 21 explicitly said "do not add more than
+  three cases yet" until Prompt 37's real-user testing happens. Nothing
+  since then has changed that — adding content depth now would be
+  scope creep ahead of the gate this whole project has been careful to
+  respect. Still blocked on people, not on anything in this file.
+- The data-retention-period and applicable-regulation decisions.
+  Confirmed still open in docs/STATUS.md, unchanged since Prompt 30.
+  These are policy calls for whoever owns Chiron's legal/product
+  function, not engineering work — no prompt belongs here for them.
+- A direct human read of the two loc.gov license pages. Confirmed
+  still blocked by bot detection to both plain fetch and browser
+  automation. This needs an actual person opening a browser, not
+  another attempt by an agent — due at the December quarterly check
+  per docs/CONTENT_LICENSING.md.
 
-Run in this order: F1 (CI) first, since everything after it should
-land through a gate that actually exists rather than the honor system;
-then F2 (privacy/terms) and F3 (password reset) in either order; F4
-(org member management) last since it's the most involved.
+GROUNDING — confirmed before writing G1-G6
+---------------------------------------------
+Checked directly: still no error-monitoring dependency anywhere in
+package.json (Sentry, Logtail, Datadog, PostHog — all absent); the
+scoring API route's server-side error handling is actually solid
+(proper 429 with Retry-After, careful log hygiene that never logs raw
+lesson text — worth knowing before assuming this needs a rewrite, it
+mostly needs a monitoring destination, not a redesign); "My lessons"
+has no search/filter/pagination markup at all in the page source.
 
---------------------------------------------------------------------------------
-PROMPT F1 — Add a CI pipeline that actually gates merges
---------------------------------------------------------------------------------
-
-Read package.json's scripts, docs/ARCHITECTURE.md's testing strategy
-section, and docs/SECURITY.md for which test suites need real
-credentials (live Supabase RLS tests, live DeepSeek/OpenAI/Mistral
-provider tests) before starting — this matters because a naive
-"run npm test in CI" will either fail on secrets that don't exist in a
-PR context or, worse, silently skip the tests that matter most
-(exactly the RLS and injection-resistance suites this project has
-leaned on most heavily) without anyone noticing the skip.
-
-Add .github/workflows/ci.yml (or split into multiple workflow files if
-that's cleaner — your call) that runs on every push and pull request
-against main:
-
-1. Fast, always-runnable checks with no external credentials needed:
-   npm run check, npm run lint, npm test (confirm test currently
-   passes with no secrets present — check whether any spec files
-   currently assume live credentials are available and would error
-   rather than skip; if so, fix those specs to skip cleanly via
-   whatever pattern the project already uses, e.g. the existing
-   describe.skipIf(!hasApiKey) convention mentioned in earlier prompts
-   — don't leave CI red because of tests that were only ever meant to
-   run locally with real keys).
-2. npm run build, to catch build-breaking changes.
-3. A separate job (or a clearly gated step) for the live-credential
-   suites — RLS/adversarial database tests and live provider
-   integration tests — that runs only when the relevant secrets are
-   available as repository/environment secrets. Decide and document
-   explicitly: do these run on every PR (using a real but
-   non-production Supabase project and API keys with spend limits), or
-   only on merges to main, or manually via workflow_dispatch? Cost and
-   the risk of a malicious/accidental PR burning API spend both matter
-   here — pick a defensible default and record the reasoning in
-   docs/DECISIONS.md as a new ADR, don't just wire it up silently.
-4. Branch protection intent: this prompt can't itself change GitHub's
-   branch protection settings (that's a repo-settings action, not a
-   code change), but document in the new ADR exactly which checks
-   should be marked required once someone with repo admin access sets
-   that up, so the CI file isn't just decorative.
-
-Do not add live-credential jobs that would fail (and block merges) for
-any contributor who doesn't have those secrets — a fork or an external
-PR should still get useful signal from the fast checks even if the
-live suites don't run for it.
-
-Add a status badge to README.md once the workflow exists and has run
-at least once successfully.
+Run in roughly this priority order: G1 and G2 first (both are
+substantive, previously-measured-but-unfixed gaps); G3 and G4 next
+(operational maturity); G5 and G6 are smaller and can slot in anytime.
 
 --------------------------------------------------------------------------------
-PROMPT F2 — Add real privacy and terms pages
+PROMPT G1 — Actually fix the classifier injection gap, not just keep measuring it
 --------------------------------------------------------------------------------
 
-This one has a hard dependency this prompt cannot resolve on its own:
-docs/STATUS.md has carried two open governance items since Prompt 30 —
-data retention policy, and which student-data-privacy regulations
-apply — as explicitly "not Chiron's to invent." A privacy policy that
-states a retention period or a regulatory posture nobody has actually
-decided is worse than no page at all, because it creates a written
-commitment that might be wrong. Do not guess at either of those two
-answers in this prompt.
+Read docs/SECURITY.md Section 9, src/lib/providers/classifierCore.ts,
+and docs/qa/LLM_CROSS_CHECK_2026-09-21.md's deterministic
+injection-resistance section before starting.
 
-What this prompt CAN do without waiting on that decision:
+The gap has been measured twice now (2/9, then 0/36 on a larger,
+more varied sample) but the underlying weakness the security review
+identified — evidenceQuote is checked by normalized substring match
+against the student's own text, which can't distinguish a genuine
+quote from an attacker's injected payload that happens to literally
+contain the matching string — has never actually been patched. The
+improved measurement is genuine signal that the current attack
+framings don't reliably trigger it, not evidence the mechanism itself
+is sound. Fix the mechanism.
 
-1. Add /privacy and /terms routes (plain content pages, following
-   whatever pattern the simplest existing static-content page in the
-   app uses, or a straightforward SvelteKit page if none exists).
-2. Write privacy-policy content that accurately describes what the
-   app actually does today, verified against real code rather than
-   assumed — what data is collected (account email, lesson text,
-   scores, and, once Phase 2B ships, student practice-attempt data),
-   what third parties process it (DeepSeek and whichever other LLM
-   vendors are live in production — check ADR-008 and current provider
-   config, not just what's been mentioned in passing), and what's
-   already true operationally (e.g. docs/SECURITY.md's statements
-   about what is and isn't logged). Everywhere the real answer depends
-   on the two open governance items, say so plainly in the page itself
-   rather than picking a placeholder number — e.g. "we are finalizing
-   our data retention timeline" is honest; inventing "12 months" is
-   not.
-3. Write terms-of-service content covering the basics that don't
-   depend on the open governance items: acceptable use, that Chiron's
-   scoring is a coaching tool and not a validated instrument (this
-   framing already exists in the app's own HonestyNote component —
-   make sure the terms are consistent with it, not contradicting it),
-   account responsibilities, and a clear statement that the service is
-   in active development.
-4. Link both from the site footer (if F-series/D-series nav work
-   already added a real footer with real content, add them there; if
-   not, a simple link in the nav's account menu or the page itself is
-   fine — don't invent a footer just for this if one doesn't already
-   exist for a good reason).
-5. Explicitly flag in your summary, and add a TODO-with-owner in
-   docs/STATUS.md's existing "Known privacy/security debt" section,
-   that both pages need a real legal/product review before this
-   product handles real student data at any scale — this prompt gets
-   you honest, accurate placeholder-free content, not a substitute for
-   that review.
+Design a stronger check that doesn't just pattern-match the same way
+the flawed check already does:
 
---------------------------------------------------------------------------------
-PROMPT F3 — Add password reset / account recovery
---------------------------------------------------------------------------------
+1. At minimum, verify the quoted span's surrounding context is
+   consistent with genuine free-text student writing rather than
+   looking like embedded structured data (e.g. reject a quote whose
+   immediate surrounding text contains JSON-like syntax, code-fence
+   markers, or other structural markers a real student answer wouldn't
+   contain in that position) — this catches the specific "fake
+   embedded JSON result" attack shape Section 9 documented without
+   needing full NLP.
+2. Consider whether the classifier call itself should receive the
+   student's text through a more structurally separated channel (e.g.
+   confirm it's already using the same delimited-block pattern
+   scoringPrompt.ts established for lesson text, and that the
+   evidenceQuote check happens against a version of the input that's
+   unambiguously scoped to only the student's actual turn, not
+   anything else that might be in context).
+3. Explicitly reason through, and document in a code comment, why
+   your chosen approach doesn't just move the same false-positive risk
+   somewhere else — a stricter check that starts rejecting genuine
+   quotes because a student happened to write something with unusual
+   punctuation is a real regression, not a fix.
 
-Read src/routes/login/+page.server.ts and src/routes/signup (whichever
-exists) first to match the existing Supabase auth pattern exactly —
-this should look like it was written by the same person as the rest of
-auth, not bolted on differently.
+Add the new attack framings from the QA sweep (check
+docs/qa/LLM_CROSS_CHECK_2026-09-21.md for the exact three novel
+framings beyond the original) as permanent additions to the existing
+live adversarial test suite for this provider, not just a one-off
+script run — this gap needs to stay caught by normal CI (now that G-
+series's CI work, i.e. Prompt F1, exists) going forward, not
+re-discovered by another manual sweep.
 
-Supabase Auth has this built in (resetPasswordForEmail plus an
-updateUser call once the user lands back with a valid recovery
-session) — use that rather than building custom token/email
-infrastructure.
-
-1. Add a "Forgot password?" link on the login page.
-2. Add /forgot-password: a simple form (email only) that calls
-   supabase.auth.resetPasswordForEmail with a redirect back to a new
-   /reset-password route. Show the same success message whether or not
-   the email actually has an account — don't let this page become a
-   way to enumerate registered emails (check whether Supabase's own
-   response already avoids leaking that, and don't undo it by branching
-   the UI copy on the result).
-3. Add /reset-password: the page a user lands on from the email link,
-   which reads Supabase's recovery session and lets them set a new
-   password via updateUser. Handle the expired/invalid-link case with
-   a clear message and a way back to /forgot-password, not a raw error.
-4. Confirm Supabase's email templates/redirect URLs are configured
-   correctly for this flow in whatever environment config exists
-   (check .env.example and any Supabase config already in the repo) —
-   if this requires a Supabase-dashboard-side setting this prompt can't
-   make from the codebase alone, say so explicitly rather than silently
-   assuming it's already configured.
-
-Add tests: the forgot-password form doesn't reveal whether an email is
-registered; the reset-password page correctly rejects an expired/
-invalid session rather than crashing; a successful reset actually lets
-the user log in with the new password afterward (this last one likely
-needs to be a live-Supabase test gated the same way the existing RLS
-suite is, since Supabase's actual auth flow can't be meaningfully
-mocked).
+Update docs/SECURITY.md Section 9 to reflect the actual fix, not just
+an improved measurement.
 
 --------------------------------------------------------------------------------
-PROMPT F4 — Org member management: remove, change role, transfer admin
+PROMPT G2 — Close the reading-level gap the QA sweep surfaced
 --------------------------------------------------------------------------------
 
-Read src/routes/account/org/+page.server.ts's existing actions
-(createOrg, invite, revokeInvite, toggleFeatured) and whatever RLS
-policies currently govern the memberships table before starting — this
-needs to extend the existing admin-only-action pattern those already
-use (check how revokeInvite currently verifies the requester is an
-admin and follow the same check, don't reinvent it).
+Read docs/qa/LLM_CROSS_CHECK_2026-09-21.md's readability section (FK
+11.7-13.3 across the three cases, tutor-generated questions running
+even higher than source case text in two of three cases, and the
+explicit note that no case currently has an authored target grade
+band to check any of this against) before starting.
 
-Add three new admin-only actions:
+Two parts:
 
-1. removeMember: an admin removes an existing member from the org.
-   Decide and handle explicitly: what happens to lessons that member
-   marked org-shared or public-template (they should almost certainly
-   stay in the org's library — a departing teacher's contributed
-   examples shouldn't vanish — confirm this is what actually happens
-   given however ownership/visibility is currently modeled, don't
-   assume). An admin should not be able to remove themselves via this
-   action if they're the org's only admin (see action 3 below for why).
-2. changeRole: an admin promotes a member to admin or demotes an admin
-   to member. An admin cannot demote themselves if they're the sole
-   remaining admin — that would leave the org with no admin at all, a
-   state nothing else in this codebase is designed to recover from
-   (check whether such a state is even currently preventable by RLS or
-   only by application logic, and make sure the check happens
-   server-side, not just hidden in the UI).
-3. leaveOrg (a member, including an admin, removing themselves): same
-   sole-admin guard as above — a sole admin must either promote someone
-   else first or delete the org, not leave it adminless.
+1. Add an authored targetGradeBand field to the PracticeCase schema
+   (e.g. a simple range like { min: 6, max: 8 } for middle school, or
+   whatever granularity fits how the three existing cases were
+   actually written for — check whether they were written with an
+   implicit audience in mind that just was never captured in the
+   schema, rather than picking an arbitrary band). Backfill it onto
+   the three existing canonical cases based on their actual content
+   and complexity — don't guess independent of what's already there,
+   read each case's real text and reason about what grade band it
+   actually fits, and note your reasoning in a comment or
+   docs/CASE_AUTHORING.md.
+2. The harder part: the tutor's own generated questions ran higher
+   than the source text, in a system where the tutor doesn't receive
+   an explicit reading-level instruction at all currently (confirm
+   this by reading tutorPrompt.ts). Add the case's targetGradeBand to
+   what the tutor prompt receives, with an explicit instruction to
+   phrase questions appropriately for that band — concise, plain
+   sentence structure, avoiding compound/nested clauses. This is a
+   prompt-engineering change, not a hard constraint the code can
+   enforce, so add a live test that runs a Flesch-Kincaid check (or
+   equivalent) on a sample of tutor-generated questions per case
+   against the stated band and flags (doesn't necessarily hard-fail
+   the build on, since this is inherently variable) a measurable
+   regression — this is the same kind of "measure it honestly rather
+   than assume the prompt instruction worked" discipline the rest of
+   this project has already applied elsewhere.
 
-For all three: require the acting user to actually be an admin of that
-specific org (matching the existing pattern, not a generic "is an
-admin of any org" check), add live RLS/adversarial tests proving a
-non-admin member cannot call any of these three actions on themselves
-with elevated effect or on anyone else, and that a sole admin is
-blocked from self-demoting or leaving without transferring admin
-first. Update the org management UI to surface these three actions
-per-member (with the sole-admin case disabled/explained in the UI, not
-just failing silently server-side when attempted).
+Do not hand-tune tutor prompt wording purely by eyeballing the diff —
+re-run the same readability measurement from the QA sweep after this
+change and report the before/after numbers, the same way the injection
+gap's before/after was reported, rather than declaring success by
+inspection.
 
-Update docs/DECISIONS.md if any of the sole-admin-guard decisions above
-involved a real design choice worth recording (e.g. why "block" rather
-than "auto-promote the next member" was chosen).
+--------------------------------------------------------------------------------
+PROMPT G3 — Add error monitoring
+--------------------------------------------------------------------------------
+
+No error-tracking dependency exists anywhere in this project currently
+— confirmed in package.json. Right now, a class of failure affecting
+a subset of users (a provider outage, a schema-validation regression
+after a prompt change, an RLS policy accidentally tightened too far)
+would only be discovered by a user reporting it, not by anyone at
+Chiron noticing first.
+
+1. Pick and add a monitoring provider (Sentry is the most common fit
+   for a SvelteKit app and has a maintained SvelteKit integration —
+   use it unless there's a concrete reason not to, in which case say
+   why and pick an alternative).
+2. Wire it into: unhandled errors across server routes, the scoring/
+   classifier/tutor provider error paths (the ones that already log
+   carefully to console per the existing "never log raw lesson/student
+   text" discipline — extend that same discipline to whatever gets
+   sent to the monitoring service; this needs the same scrutiny as the
+   existing console logging, not less, since a third-party monitoring
+   vendor is a new place student/lesson data could leak to if this
+   isn't done carefully), and client-side unhandled errors.
+3. Explicitly audit what gets sent for PII/sensitive-content leakage
+   before this ships — reuse the existing "log only error name/
+   message, never raw content" pattern already established in the
+   scoring route, and add a live-reviewable test or at minimum a
+   documented manual check confirming a scoring failure with real
+   lesson text in it doesn't end up verbatim in the monitoring
+   dashboard.
+4. Add basic alerting for the failure modes that matter most: repeated
+   provider errors (a vendor outage), a spike in RLS-denied requests
+   (could indicate either an attack or a policy regression — these
+   look similar from the outside and both deserve attention), and the
+   rate limiter's own "fails open" path actually firing in production
+   (per the bug F1 found and fixed — this is exactly the kind of thing
+   that should now be observable, not just correctly-coded).
+
+Document what's monitored and how to check it in a new
+docs/OPERATIONS.md, since this is the first piece of actual production
+operations tooling in the project.
+
+--------------------------------------------------------------------------------
+PROMPT G4 — Content moderation for public-template lessons
+--------------------------------------------------------------------------------
+
+Read the visibility model (private/org-shared/public-template) and
+confirm current behavior: any user can currently mark their own lesson
+public-template, making it visible to any Chiron user regardless of
+org. There is currently no way for anyone — a Chiron-level
+administrator, not an org admin — to remove or hide a public-template
+lesson once it's live. Low risk at current user counts, growing risk
+as the user base grows, which is the wrong direction for a gap to
+scale.
+
+1. Add a Chiron-level (not org-level — a new, separate role/concept;
+   don't conflate this with is_org_admin, which is scoped to one org)
+   moderator capability: the ability to unpublish a public-template
+   lesson (demote it back to private or org-shared, owner's choice
+   doesn't matter here — the point is removing it from public
+   visibility) with a required reason logged.
+2. Design who holds this capability carefully — this is new, elevated,
+   cross-org access and needs the same rigor as every other RLS
+   decision in this project: a live adversarial test proving an
+   ordinary user (including an org admin who isn't also a Chiron-level
+   moderator) cannot call this action, and that the moderator
+   capability itself can't be self-granted through any exposed path.
+   If there's currently no concept of a "Chiron staff" user at all,
+   this prompt needs to establish the minimal version of one (e.g. a
+   flag on a specific known account, or an allowlist — don't over-
+   build a full roles system for what's currently a need for maybe one
+   or two people).
+3. Add a lightweight report mechanism: let any signed-in user flag a
+   public-template lesson as inappropriate, logged for the moderator
+   to review — don't auto-unpublish on a report, that creates its own
+   abuse vector.
+4. Document the moderation process (who has this access today, how a
+   report reaches them, what "inappropriate" means for this specific
+   product's content — a lesson-plan sharing feature has a narrower
+   and different risk surface than general user-generated content, and
+   the guidance should reflect that rather than importing a generic
+   trust-and-safety policy wholesale) in docs/OPERATIONS.md (from G3,
+   or a new doc if G3 hasn't run yet).
+
+--------------------------------------------------------------------------------
+PROMPT G5 — "My lessons" usability: search, re-score staleness, and confirming client-side failure states
+--------------------------------------------------------------------------------
+
+Three smaller, related gaps on the same page, worth doing together
+since they touch the same component:
+
+1. Read src/routes/lessons/+page.svelte and +page.server.ts. Add
+   search-by-title and filter-by-subject-profile to the load function
+   and UI — fine at today's scale to do client-side over an already-
+   fetched list rather than adding server-side pagination, but note in
+   a comment that this should move server-side once a user's lesson
+   count makes fetching the full list on every load impractical (don't
+   over-build pagination infrastructure for a page that currently
+   shows two lessons, just don't paint yourself into a corner either —
+   say explicitly what the threshold for revisiting this should be).
+2. If a stored Score's promptVersion (added in an earlier prompt) no
+   longer matches the scoring engine's current PROMPT_VERSION constant,
+   show a small, unobtrusive "scored with an earlier version of
+   Chiron's rubric — re-score for the latest feedback" indicator on
+   that lesson, linking to the re-score action already built on the
+   lesson detail page. Don't auto-re-score — that would silently spend
+   API calls and silently change a teacher's saved feedback without
+   them asking for it.
+3. Confirm (with an actual test, not just a read-through) that a 429
+   (rate-limited) or 502 (provider error) response from the scoring API
+   — both already handled correctly server-side per the existing code
+   — surfaces a clear, specific message in the UI rather than a generic
+   error or a silent failure. If it doesn't already, fix it; if it
+   does, this step is just adding the missing test coverage that
+   confirms it stays that way.
+
+--------------------------------------------------------------------------------
+PROMPT G6 — Source and seed the two remaining subject-profile examples
+--------------------------------------------------------------------------------
+
+Read docs/CONTENT_LICENSING.md's process in full before starting —
+follow it exactly as documented, since the whole point of writing that
+process down was so this didn't need fresh manual research supplied in
+the prompt itself each time.
+
+Source and seed one real, openly-licensed example lesson each for the
+two subject profiles that still don't have one: ela-argumentative-
+writing and civics-current-events. Apply the same standard already
+established: prefer CC BY, CC BY-SA, or public-domain (by government
+authorship or by age) sources; verify the license on the live source
+page at ingestion time, not from memory or a prior conversation; if a
+tempting candidate turns out to be CC BY-NC or otherwise restricted,
+reject it the way SHEG and SchoolJournalism.org were rejected earlier
+and say so in your summary rather than silently picking a different
+source without explaining what was ruled out; if you cannot find and
+verify a clean candidate for either profile in a reasonable search
+effort, report that honestly rather than stretching a marginal source
+to fit — an incomplete example set is a smaller problem than a
+licensing mistake.
+
+Follow the existing seeding, attribution, and re-verification pattern
+(migration + seed script + docs/CONTENT_LICENSING.md's re-check log
+entry) exactly as established for the first three examples. Add each
+to the /examples page and confirm attribution renders and survives
+duplication, matching the existing tests' pattern for the first three.
