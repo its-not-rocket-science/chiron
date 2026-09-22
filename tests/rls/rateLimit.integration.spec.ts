@@ -22,7 +22,11 @@ describe.skipIf(!hasSupabase)('checkRateLimit (live Postgres-backed limiter)', (
 		for (let i = 0; i < 5; i++) {
 			expect((await checkRateLimit(key, 5, 60_000)).allowed).toBe(true);
 		}
-	});
+	}, // 5 sequential real round-trips to Postgres — vitest's 5000ms default
+	// was tight enough to time out on a GitHub Actions runner (found by
+	// actually running this in CI, prompt.txt Prompt F1/ADR-028; passed
+	// consistently on a local connection, which is closer to the DB).
+	10_000);
 
 	it('blocks the request once the limit is exceeded, with a positive retry-after', async () => {
 		const key = `test-${randomUUID()}`;
@@ -30,7 +34,7 @@ describe.skipIf(!hasSupabase)('checkRateLimit (live Postgres-backed limiter)', (
 		const result = await checkRateLimit(key, 3, 60_000);
 		expect(result.allowed).toBe(false);
 		expect(result.retryAfterSeconds).toBeGreaterThan(0);
-	});
+	}, 10_000);
 
 	it('tracks different keys independently', async () => {
 		const keyA = `test-a-${randomUUID()}`;
@@ -38,7 +42,7 @@ describe.skipIf(!hasSupabase)('checkRateLimit (live Postgres-backed limiter)', (
 		for (let i = 0; i < 3; i++) await checkRateLimit(keyA, 3, 60_000);
 		expect((await checkRateLimit(keyA, 3, 60_000)).allowed).toBe(false);
 		expect((await checkRateLimit(keyB, 3, 60_000)).allowed).toBe(true);
-	});
+	}, 10_000);
 
 	it('allows requests again once the window has passed', async () => {
 		const key = `test-${randomUUID()}`;
