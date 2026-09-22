@@ -27,19 +27,33 @@ export async function checkRateLimit(
 	limit: number,
 	windowMs: number
 ): Promise<RateLimitResult> {
-	const { data, error } = await getServiceRoleClient().rpc('check_rate_limit', {
-		p_key: key,
-		p_window_seconds: Math.ceil(windowMs / 1000),
-		p_max_requests: limit
-	});
+	// `getServiceRoleClient()` throws synchronously when Supabase isn't
+	// configured (by design for its other callers — see its own comment).
+	// That throw previously escaped this function's "fails open" promise
+	// entirely (it happens before the .rpc() call's own error branch below
+	// can catch anything), so a route with no Supabase configured (a fresh
+	// local checkout, or CI's no-credential job — prompt.txt Prompt F1)
+	// crashed instead of failing open. Wrapping the whole body closes that
+	// gap without changing getServiceRoleClient()'s own contract.
+	try {
+		const { data, error } = await getServiceRoleClient().rpc('check_rate_limit', {
+			p_key: key,
+			p_window_seconds: Math.ceil(windowMs / 1000),
+			p_max_requests: limit
+		});
 
-	if (error || !data || data.length === 0) {
-		console.error('Rate limit check failed, failing open:', error?.message ?? 'no rows returned');
+		if (error || !data || data.length === 0) {
+			console.error('Rate limit check failed, failing open:', error?.message ?? 'no rows returned');
+			return { allowed: true };
+		}
+
+		const row = data[0] as { allowed: boolean; retry_after_seconds: number };
+		return row.allowed
+			? { allowed: true }
+			: { allowed: false, retryAfterSeconds: row.retry_after_seconds };
+	} catch (err) {
+		const safeSummary = err instanceof Error ? `${err.name}: ${err.message}` : 'non-Error thrown';
+		console.error('Rate limit check failed, failing open:', safeSummary);
 		return { allowed: true };
 	}
-
-	const row = data[0] as { allowed: boolean; retry_after_seconds: number };
-	return row.allowed
-		? { allowed: true }
-		: { allowed: false, retryAfterSeconds: row.retry_after_seconds };
 }

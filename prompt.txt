@@ -1,270 +1,211 @@
 ================================================================================
-CHIRON — Lesson CRUD, duplicate-copy fix, nav restructure, visual design pass
+CHIRON — CI pipeline, privacy/terms pages, password reset, org member management
 ================================================================================
 
-GROUNDING — what I actually checked before writing these
------------------------------------------------------------
-Pulled the live deployed app (chiron-ruby.vercel.app) plus the real
-source: src/routes/+layout.svelte, src/routes/lessons/+page.svelte and
-+page.server.ts, src/routes/examples/+page.server.ts,
-src/routes/library/+page.svelte, src/lib/providers/DataStore.ts.
-Confirmed directly, not assumed:
+GROUNDING — confirmed before writing these
+--------------------------------------------
+Checked directly: no .github/workflows directory exists at all (every
+test/lint/build claim in docs/STATUS.md has been true because an agent
+ran the real commands and reported honestly, with no gate enforcing it
+on push/PR); no privacy or terms page or doc exists anywhere; no
+password-reset or forgot-password route exists; org management
+(src/routes/account/org/+page.server.ts) has createOrg, invite,
+revokeInvite (revokes a pending invite only), and toggleFeatured — no
+action to remove an existing member, change a role, or transfer admin.
+Confirmed package.json script names to use exactly: npm run check, npm
+run lint, npm test, npm run build. Confirmed the adapter is
+@sveltejs/adapter-vercel and auth is Supabase (signInWithPassword is
+the existing pattern in src/routes/login/+page.server.ts — match it).
 
-- There is currently no /lessons/[id] route at all — "My lessons"
-  lists title/subject/visibility only, with no link anywhere to view,
-  re-score, edit, or delete an individual lesson. This isn't a missing
-  button on an existing page; the detail page doesn't exist yet.
-- The nav in +layout.svelte is a single flat flex row with seven items
-  (Practice, My lessons, Dashboard, Library, Examples, My org, email,
-  Log out) plus two more for signed-out users, no responsive handling,
-  no mobile menu — it will wrap or overflow on anything narrower than
-  a wide desktop viewport, which is exactly what the screenshot shows
-  starting to happen even at a normal browser width.
-- The duplicate-lesson bug visible in your screenshot has a specific,
-  confirmed cause: examples/+page.server.ts's duplicate action calls
-  the copy_lesson RPC with no check for whether the current user
-  already has a copy of that source lesson, and the examples page
-  gives no indication after the fact that a copy already exists — so
-  clicking "Duplicate and try your own edit" a second time (deliberately
-  or by not remembering you'd already done it) silently creates a
-  second identical private lesson. This is not a double-submit/event-
-  handling bug — the button already has a proper `disabled` guard
-  during submission (and a related off-screen-confirmation bug was
-  already found and fixed live, per an existing code comment) — it's a
-  missing idempotency/duplicate-prevention check, plus a UX gap. Prompt
-  D1 below fixes the actual cause, not just the symptom you can see.
-- There's no existing edit/delete pattern anywhere in the app to reuse
-  — library, lessons, and examples pages have no precedent for either.
-  These prompts design that pattern once and it becomes the template.
-
-Recommended order: D1 (fix the duplicate bug + let you clean up the
-two existing copies) first, since it's the smallest and most urgent;
-then D2 (lesson detail/edit/delete, which also gives you the cleanup
-UI); then D3 (nav restructure) and D4 (responsive + visual design
-pass) can happen in either order, though D4 goes more smoothly once
-D3 has already resolved the nav.
+Run in this order: F1 (CI) first, since everything after it should
+land through a gate that actually exists rather than the honor system;
+then F2 (privacy/terms) and F3 (password reset) in either order; F4
+(org member management) last since it's the most involved.
 
 --------------------------------------------------------------------------------
-PROMPT D1 — Fix the duplicate-copy gap and let existing duplicates be cleaned up
+PROMPT F1 — Add a CI pipeline that actually gates merges
 --------------------------------------------------------------------------------
 
-Read src/routes/examples/+page.server.ts's duplicate action,
-supabase/migrations/*copy_lesson* (the RPC it calls), and confirm the
-diagnosis above by reproducing it: duplicate the same example lesson
-twice as a test user and confirm two rows result.
+Read package.json's scripts, docs/ARCHITECTURE.md's testing strategy
+section, and docs/SECURITY.md for which test suites need real
+credentials (live Supabase RLS tests, live DeepSeek/OpenAI/Mistral
+provider tests) before starting — this matters because a naive
+"run npm test in CI" will either fail on secrets that don't exist in a
+PR context or, worse, silently skip the tests that matter most
+(exactly the RLS and injection-resistance suites this project has
+leaned on most heavily) without anyone noticing the skip.
 
-Fix in two parts:
+Add .github/workflows/ci.yml (or split into multiple workflow files if
+that's cleaner — your call) that runs on every push and pull request
+against main:
 
-1. Idempotency: before calling (or inside) copy_lesson, check whether
-   the current user already owns a copy of this source lesson (you'll
-   need a way to trace a copy back to its source — check whether
-   copy_lesson already records that lineage anywhere, e.g. a
-   copied_from_lesson_id column or similar; add one via a new
-   migration if it doesn't exist, since without it there's no reliable
-   way to detect "already copied" at all, only "has a lesson with the
-   same title," which is a much weaker and more fragile check). If a
-   copy already exists, don't silently create another — either return
-   the existing copy's id so the UI can link straight to it, or (if
-   you decide re-copying should be allowed deliberately) surface that
-   explicitly rather than staying silent.
-2. UX: update the examples page so, after a successful (or detected
-   pre-existing) copy, the button/confirmation area clearly shows
-   "You already have a copy of this" with a link to it, rather than
-   just re-offering "Duplicate and try your own edit" with no memory
-   of the prior action. Load this state on page load too (not just
-   after a fresh submission in this session) so it's correct on a
-   revisit, not just immediately after copying.
+1. Fast, always-runnable checks with no external credentials needed:
+   npm run check, npm run lint, npm test (confirm test currently
+   passes with no secrets present — check whether any spec files
+   currently assume live credentials are available and would error
+   rather than skip; if so, fix those specs to skip cleanly via
+   whatever pattern the project already uses, e.g. the existing
+   describe.skipIf(!hasApiKey) convention mentioned in earlier prompts
+   — don't leave CI red because of tests that were only ever meant to
+   run locally with real keys).
+2. npm run build, to catch build-breaking changes.
+3. A separate job (or a clearly gated step) for the live-credential
+   suites — RLS/adversarial database tests and live provider
+   integration tests — that runs only when the relevant secrets are
+   available as repository/environment secrets. Decide and document
+   explicitly: do these run on every PR (using a real but
+   non-production Supabase project and API keys with spend limits), or
+   only on merges to main, or manually via workflow_dispatch? Cost and
+   the risk of a malicious/accidental PR burning API spend both matter
+   here — pick a defensible default and record the reasoning in
+   docs/DECISIONS.md as a new ADR, don't just wire it up silently.
+4. Branch protection intent: this prompt can't itself change GitHub's
+   branch protection settings (that's a repo-settings action, not a
+   code change), but document in the new ADR exactly which checks
+   should be marked required once someone with repo admin access sets
+   that up, so the CI file isn't just decorative.
 
-Add tests: duplicating the same example twice produces one lesson row,
-not two; the second attempt surfaces the existing copy rather than
-erroring or silently no-op'ing.
+Do not add live-credential jobs that would fail (and block merges) for
+any contributor who doesn't have those secrets — a fork or an external
+PR should still get useful signal from the fast checks even if the
+live suites don't run for it.
 
-Separately — this is cleanup, not a fix, do it after the above works —
-give the two existing duplicate rows from the live database a way to
-be removed. If Prompt D2 (lesson delete) isn't done yet, do a one-off:
-confirm via a direct query which of the two rows is safe to remove
-(they should be identical copies with no divergent edits — confirm
-that before deleting either one) and remove the extra one. Don't do
-this until you've confirmed both rows really are exact duplicates and
-not two lessons that happen to share a title.
-
---------------------------------------------------------------------------------
-PROMPT D2 — Build the lesson detail view, and make lessons editable and deletable
---------------------------------------------------------------------------------
-
-Read src/routes/lessons/+page.svelte, +page.server.ts, the Lesson/
-LessonVersion domain types, and how scoring/re-scoring currently works
-end to end (the flow used right after a fresh submission) before
-starting — this needs to reuse that pipeline, not reimplement it.
-
-Build /lessons/[id]:
-
-1. Server load: fetch the lesson, its current (and, if the schema
-   already supports it, prior) LessonVersion(s) and Score, respecting
-   RLS — a user should only be able to load their own lesson (or one
-   they have legitimate access to via org-shared/public-template
-   visibility, matching whatever rule already governs the library view;
-   check that page's load function for the existing pattern rather
-   than inventing a new one).
-2. View: show the lesson's saved text, subject profile, grade level,
-   visibility, and its stored score/skill-coverage/suggestions exactly
-   the way a freshly-submitted lesson's results are shown today (reuse
-   ScoreDisplay/SkillChecklist/SuggestionList — don't build new
-   display components for this).
-3. Edit: let the owner revise the lesson text (and subject
-   profile/grade level) and resubmit for re-scoring, using the
-   existing before/after LessonVersion comparison machinery if it's
-   already built (check for it — an earlier prompt in this project's
-   history specified a before/after comparison view; confirm whether
-   it exists as a component you can drop in here, and if it does,
-   reuse it rather than building a second one).
-4. Delete: let the owner delete the lesson (and its versions/scores —
-   check whether cascade delete is already configured at the DB level
-   or needs to be handled explicitly). Require a confirmation step
-   (a simple "are you sure" state is fine, doesn't need to be a modal
-   library) — this is a destructive, unrecoverable action and the UI
-   should treat it that way without being alarmist about it.
-5. RLS: confirm (with a live adversarial test, matching this repo's
-   established standard for this kind of change) that a user cannot
-   load, edit, or delete another user's private lesson via this new
-   route or its underlying API calls, and that org-shared/public-
-   template visibility rules are respected for read access without
-   accidentally granting write access to non-owners.
-
-Update src/routes/lessons/+page.svelte so each lesson title actually
-links to its new /lessons/[id] page — right now nothing does.
-
-Add tests: edit flow re-scores and preserves version history; delete
-removes the lesson and its dependent rows; a non-owner gets a 403/404
-rather than the lesson's content, on both the page load and any
-underlying API route.
+Add a status badge to README.md once the workflow exists and has run
+at least once successfully.
 
 --------------------------------------------------------------------------------
-PROMPT D3 — Restructure navigation: trim the header, move the rest to a footer
+PROMPT F2 — Add real privacy and terms pages
 --------------------------------------------------------------------------------
 
-Read src/routes/+layout.svelte (the entire current nav lives here — no
-separate Nav/Header component exists yet, contrary to what you might
-expect from the file naming elsewhere in the project) before starting.
+This one has a hard dependency this prompt cannot resolve on its own:
+docs/STATUS.md has carried two open governance items since Prompt 30 —
+data retention policy, and which student-data-privacy regulations
+apply — as explicitly "not Chiron's to invent." A privacy policy that
+states a retention period or a regulatory posture nobody has actually
+decided is worse than no page at all, because it creates a written
+commitment that might be wrong. Do not guess at either of those two
+answers in this prompt.
 
-Redesign the navigation structure rather than just visually
-compressing the same seven links into less space:
+What this prompt CAN do without waiting on that decision:
 
-1. Header (top): keep this to what someone needs on every single page
-   regardless of what they're doing — the Chiron wordmark/logo linking
-   home, and an account affordance (signed in: an avatar/email menu
-   containing "My org" and "Log out" tucked inside it rather than as
-   separate top-level links; signed out: Log in / Sign up). That's the
-   whole header on desktop. On mobile, collapse everything (including
-   the primary nav below) behind a single menu control.
-2. Primary navigation (Practice, My lessons, Dashboard, Library,
-   Examples): move these out of the cramped top bar. Pick whichever of
-   these fits the product better and say why in your summary: a
-   left-hand sidebar (common for an app with this many top-level
-   sections a user moves between constantly), or a secondary nav bar
-   directly under the header (closer to what exists today, just
-   demoted out of the always-visible top strip and given room to
-   breathe). Don't put frequently-used daily navigation (Practice, My
-   lessons) in the footer — a footer is for things visited rarely, and
-   burying the primary way someone moves around the app down there
-   would make the app slower to use, not just less cluttered. Reserve
-   an actual footer for things that belong there: nothing currently
-   exists that needs one (no about/help/legal links yet) — don't
-   invent placeholder footer content just to satisfy "move things to a
-   footer" if there's nothing real to put there yet; it's fine for the
-   footer to end up small or for this prompt to conclude a footer isn't
-   the right container for this specific problem, as long as the
-   header itself is genuinely decluttered.
-3. Active-page indication: whichever nav pattern you land on, make the
-   current page visually distinct in the nav (not just relying on the
-   URL) — the current flat link list gives no sense of where you are.
-4. Every nav element needs a visible keyboard focus state and correct
-   semantics (nav landmark, current-page aria attribute) — carry this
-   through the redesign, don't treat it as a follow-up.
-
-Component-ize this: extract the new navigation into its own
-component(s) under src/lib/components/ rather than leaving it inline
-in +layout.svelte, since it'll need real responsive logic (a mobile
-menu has open/closed state) that doesn't belong in the root layout
-file.
-
-Add a component test confirming the mobile menu toggles correctly and
-that the current page is marked as active in the nav.
+1. Add /privacy and /terms routes (plain content pages, following
+   whatever pattern the simplest existing static-content page in the
+   app uses, or a straightforward SvelteKit page if none exists).
+2. Write privacy-policy content that accurately describes what the
+   app actually does today, verified against real code rather than
+   assumed — what data is collected (account email, lesson text,
+   scores, and, once Phase 2B ships, student practice-attempt data),
+   what third parties process it (DeepSeek and whichever other LLM
+   vendors are live in production — check ADR-008 and current provider
+   config, not just what's been mentioned in passing), and what's
+   already true operationally (e.g. docs/SECURITY.md's statements
+   about what is and isn't logged). Everywhere the real answer depends
+   on the two open governance items, say so plainly in the page itself
+   rather than picking a placeholder number — e.g. "we are finalizing
+   our data retention timeline" is honest; inventing "12 months" is
+   not.
+3. Write terms-of-service content covering the basics that don't
+   depend on the open governance items: acceptable use, that Chiron's
+   scoring is a coaching tool and not a validated instrument (this
+   framing already exists in the app's own HonestyNote component —
+   make sure the terms are consistent with it, not contradicting it),
+   account responsibilities, and a clear statement that the service is
+   in active development.
+4. Link both from the site footer (if F-series/D-series nav work
+   already added a real footer with real content, add them there; if
+   not, a simple link in the nav's account menu or the page itself is
+   fine — don't invent a footer just for this if one doesn't already
+   exist for a good reason).
+5. Explicitly flag in your summary, and add a TODO-with-owner in
+   docs/STATUS.md's existing "Known privacy/security debt" section,
+   that both pages need a real legal/product review before this
+   product handles real student data at any scale — this prompt gets
+   you honest, accurate placeholder-free content, not a substitute for
+   that review.
 
 --------------------------------------------------------------------------------
-PROMPT D4 — Full responsive audit and a real visual design pass
+PROMPT F3 — Add password reset / account recovery
 --------------------------------------------------------------------------------
 
-This is the biggest and most subjective prompt here — treat it as a
-design exercise with a plan-then-build structure, not just "add some
-Tailwind breakpoints."
+Read src/routes/login/+page.server.ts and src/routes/signup (whichever
+exists) first to match the existing Supabase auth pattern exactly —
+this should look like it was written by the same person as the rest of
+auth, not bolted on differently.
 
-Part A — plan first, don't start writing CSS yet:
+Supabase Auth has this built in (resetPasswordForEmail plus an
+updateUser call once the user lands back with a valid recovery
+session) — use that rather than building custom token/email
+infrastructure.
 
-Chiron is a tool teachers (and eventually students) use to get honest,
-specific feedback on real work — closer to a considered coaching
-instrument than a consumer SaaS dashboard. Come up with a compact
-design plan before touching code:
-- Color: 4-6 named hex values forming a deliberate palette. The
-  current UI is bare Tailwind slate-on-white with no accent color
-  anywhere — don't just add "an accent color," choose one that fits an
-  education/evidence-and-reasoning tool specifically (this is not a
-  generic dashboard and shouldn't end up looking like one; also
-  specifically avoid the default AI-generated-design tells: don't reach
-  for warm cream + terracotta, near-black + one acid accent, or the
-  identical-rounded-card-with-soft-shadow kit unless you've actually
-  concluded one of those is right for this brief rather than reaching
-  for it by default).
-- Type: pick real typefaces with a role each (one for headings/UI
-  chrome, one for body/lesson text if they differ) and a defined scale
-  — right now everything is default Tailwind font sizing with no
-  apparent scale logic.
-- Layout: how the three-pillar scores, skill checklist, and
-  suggestions should actually be laid out to read as a coherent report
-  rather than three stacked generic cards — sketch this in prose/ASCII
-  before building.
-- State this plan in a short docs/DESIGN.md before writing any
-  component code, and briefly check it against the anti-patterns above
-  before proceeding — revise anything that reads as a generic default
-  rather than a choice made for this specific product.
+1. Add a "Forgot password?" link on the login page.
+2. Add /forgot-password: a simple form (email only) that calls
+   supabase.auth.resetPasswordForEmail with a redirect back to a new
+   /reset-password route. Show the same success message whether or not
+   the email actually has an account — don't let this page become a
+   way to enumerate registered emails (check whether Supabase's own
+   response already avoids leaking that, and don't undo it by branching
+   the UI copy on the result).
+3. Add /reset-password: the page a user lands on from the email link,
+   which reads Supabase's recovery session and lets them set a new
+   password via updateUser. Handle the expired/invalid-link case with
+   a clear message and a way back to /forgot-password, not a raw error.
+4. Confirm Supabase's email templates/redirect URLs are configured
+   correctly for this flow in whatever environment config exists
+   (check .env.example and any Supabase config already in the repo) —
+   if this requires a Supabase-dashboard-side setting this prompt can't
+   make from the codebase alone, say so explicitly rather than silently
+   assuming it's already configured.
 
-Part B — responsive audit, every route:
+Add tests: the forgot-password form doesn't reveal whether an email is
+registered; the reset-password page correctly rejects an expired/
+invalid session rather than crashing; a successful reset actually lets
+the user log in with the new password afterward (this last one likely
+needs to be a live-Supabase test gated the same way the existing RLS
+suite is, since Supabase's actual auth flow can't be meaningfully
+mocked).
 
-Go through every existing route (/, /lessons, /lessons/[id] from
-Prompt D2, /library, /examples, /practice and its case-attempt flow,
-/dashboard, /account/org, /login, /signup) at three widths — narrow
-mobile (~375px), tablet (~768px), and desktop — and fix what breaks.
-Particular attention to: the practice-mode case UI (has the most
-complex layout — evidence cards, confidence sliders, the tutor
-challenge/response exchange — and per docs/STATUS.md was explicitly
-built mobile-first, so audit whether it's held up rather than assuming
-it's fine), any data tables or score displays that might overflow
-narrow viewports, and forms (lesson input, the structured 4-field mode
-from an earlier prompt if it's built) staying usable on mobile.
+--------------------------------------------------------------------------------
+PROMPT F4 — Org member management: remove, change role, transfer admin
+--------------------------------------------------------------------------------
 
-Part C — apply the design plan:
+Read src/routes/account/org/+page.server.ts's existing actions
+(createOrg, invite, revokeInvite, toggleFeatured) and whatever RLS
+policies currently govern the memberships table before starting — this
+needs to extend the existing admin-only-action pattern those already
+use (check how revokeInvite currently verifies the requester is an
+admin and follow the same check, don't reinvent it).
 
-Rebuild the shared components (ScoreDisplay, SkillChecklist,
-SuggestionList, lesson/library cards, buttons, form inputs) against
-the Part A plan, consistently — not each restyled slightly differently.
-Keep the actual information architecture and functionality unchanged;
-this is a visual and responsive pass, not a redesign of what the app
-does. Respect existing accessibility work already in place (keyboard
-navigation, focus states, reduced-motion — check
-docs/PHASE2A_IMPLEMENTATION.md or wherever these requirements were
-originally specified) rather than regressing it while restyling.
+Add three new admin-only actions:
 
-Part D — self-critique before calling this done:
+1. removeMember: an admin removes an existing member from the org.
+   Decide and handle explicitly: what happens to lessons that member
+   marked org-shared or public-template (they should almost certainly
+   stay in the org's library — a departing teacher's contributed
+   examples shouldn't vanish — confirm this is what actually happens
+   given however ownership/visibility is currently modeled, don't
+   assume). An admin should not be able to remove themselves via this
+   action if they're the org's only admin (see action 3 below for why).
+2. changeRole: an admin promotes a member to admin or demotes an admin
+   to member. An admin cannot demote themselves if they're the sole
+   remaining admin — that would leave the org with no admin at all, a
+   state nothing else in this codebase is designed to recover from
+   (check whether such a state is even currently preventable by RLS or
+   only by application logic, and make sure the check happens
+   server-side, not just hidden in the UI).
+3. leaveOrg (a member, including an admin, removing themselves): same
+   sole-admin guard as above — a sole admin must either promote someone
+   else first or delete the org, not leave it adminless.
 
-Take (or describe, if screenshots aren't available in this
-environment) a pass at each redesigned page and check it against
-Part A's plan and against the generic-AI-design tells specifically —
-if anything drifted back toward the default look during
-implementation, note it and fix it rather than leaving it. Record
-anything genuinely tried-and-rejected in docs/DESIGN.md so a future
-pass doesn't re-attempt the same dead end.
+For all three: require the acting user to actually be an admin of that
+specific org (matching the existing pattern, not a generic "is an
+admin of any org" check), add live RLS/adversarial tests proving a
+non-admin member cannot call any of these three actions on themselves
+with elevated effect or on anyone else, and that a sole admin is
+blocked from self-demoting or leaving without transferring admin
+first. Update the org management UI to surface these three actions
+per-member (with the sole-admin case disabled/explained in the UI, not
+just failing silently server-side when attempted).
 
-Add or update visual/component tests only where they test structure
-and behavior (mobile menu state, responsive breakpoint-driven markup
-changes) — don't write brittle pixel-snapshot tests against a design
-that's likely to keep evolving.
+Update docs/DECISIONS.md if any of the sole-admin-guard decisions above
+involved a real design choice worth recording (e.g. why "block" rather
+than "auto-promote the next member" was chosen).

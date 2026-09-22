@@ -1879,3 +1879,94 @@ decision about resubmission semantics — this ADR doesn't pre-empt that,
 it just records why P5 didn't attempt it.
 
 ---
+
+## ADR-028: CI pipeline — live-credential suites gated to push-to-main + manual dispatch, never on pull_request
+
+**Date:** 2026-09-22
+**Status:** Accepted
+
+**Decision:** `.github/workflows/ci.yml` (`prompt.txt` Prompt F1) splits
+into two jobs. `fast` (`npm run check`, `npm run lint`, `npm test`,
+`npm run build`) runs with no Supabase/vendor secrets present, on every
+`push` and every `pull_request` targeting `main` — including a fork PR,
+since no secrets are needed for it to give real signal. `live` (`npm
+test` again, this time with `PUBLIC_SUPABASE_URL`,
+`PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY` supplied as repository secrets —
+un-skipping the RLS/adversarial-database suites and the live
+DeepSeek/Anthropic provider-integration suites) runs only on a `push`
+that lands on `refs/heads/main` (i.e. after a merge), or an explicit
+`workflow_dispatch`. It never runs on `pull_request`, from a fork or
+otherwise.
+
+**Why:** Two real risks pull in opposite directions here, and this
+project has no large outside-contributor base to weigh against them
+yet. Running `live` on every PR would catch an RLS regression before
+merge — genuinely valuable, this project has leaned on that suite
+heavily (`docs/SECURITY.md`, `docs/ARCHITECTURE.md` Section 8). But it
+also means: (a) real DeepSeek/Anthropic spend on every push to every
+open PR branch, including ones nobody intends to merge yet, and (b) for
+a PR from a fork specifically, GitHub Actions doesn't expose repository
+secrets to `pull_request`-triggered workflows by default — building
+this to "just work" on fork PRs would mean either accepting the live
+job silently no-ops there (confusing — looks wired up, isn't) or
+switching to `pull_request_target` (runs with the base repo's secrets
+against code from an untrusted fork — a real security foot-gun this
+project has no reason to take on for a testing convenience). Gating to
+push-to-main sidesteps both: same-repo and fork PRs get identical,
+real, secret-free signal from `fast`; the live suites still run on
+every commit that actually reaches `main`, catching a regression
+immediately after merge rather than never; and nothing here depends on
+trusting a PR branch with real credentials.
+
+**What this doesn't do:** the CI file cannot itself flip GitHub's
+branch-protection settings (a repo-admin action, not a code change).
+Once someone with admin access is ready to enforce this: mark `fast`
+as a required status check on `main` (the only job that runs on every
+PR, so the only one that can gate merges without blocking a PR the
+`live` job never even ran for). Do **not** mark `live` as required —
+since it only runs post-merge, marking it required would make every PR
+permanently un-mergeable.
+
+**Alternatives considered:**
+
+- Run `live` on every PR, using a real but non-production, spend-capped
+  Supabase project and vendor keys: rejected for now, not because it's
+  unreasonable, but because it's a real infra-provisioning decision
+  (a second Supabase project, separate API budgets) this prompt isn't
+  positioned to just go set up — worth revisiting explicitly later if
+  pre-merge RLS coverage turns out to matter enough to justify it.
+- `pull_request_target` to get secrets on fork PRs: rejected — runs
+  workflow code with the base repo's secret access against a
+  fork-controlled checkout unless configured very carefully; not worth
+  the risk for a project this size.
+- Skip a `live` job entirely, run those suites only via a developer's
+  own `.env` locally (today's actual status quo): rejected — this is
+  exactly the "the honor system" gap `prompt.txt` Prompt F1 was written
+  to close; every claim in `docs/STATUS.md` about test counts has been
+  true only because an agent ran the real commands and reported
+  honestly, with nothing enforcing it on push.
+
+**Consequences:** A PR alone never proves the RLS suite still passes —
+only a push to `main` (or a manual run) does. This is a real,
+acknowledged trade-off, not an oversight: merge discipline (review the
+diff, run `npm test` locally with real credentials before merging
+anything RLS-sensitive, exactly as this project's own commits have done
+throughout) still matters and this CI setup doesn't replace it. A
+regression that slips through review and `fast` will be caught within
+one push of reaching `main`, not silently forever.
+
+Found and fixed while wiring the `fast` job (`prompts.txt`/`prompt.txt`
+Prompt F1's own instruction to check for exactly this):
+`checkRateLimit()`'s documented "fails open on an infra hiccup" promise
+was broken by `getServiceRoleClient()` throwing synchronously outside
+its `try`/`catch` — meaning any route that calls `checkRateLimit`
+(upload, lesson scoring, practice sessions) would 500 with no Supabase
+configured, rather than genuinely failing open as its own comment
+already claimed. Fixed in `src/lib/server/rateLimit.ts` by wrapping the
+whole check in `try`/`catch`, not by skip-gating the test that exposed
+it — the size-cap protection (`prompts.txt` Prompt C) this test proves
+is exactly the kind of security-relevant coverage that belongs in
+`fast`, not behind live credentials.
+
+---
