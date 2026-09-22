@@ -17,7 +17,7 @@
  * as-is rather than duplicated for this route — see its own comment).
  */
 import { randomUUID } from 'node:crypto';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$lib/server/env';
 
@@ -28,12 +28,25 @@ const hasSupabase = Boolean(
 const NO_PERSIST = { auth: { autoRefreshToken: false, persistSession: false } };
 
 describe.skipIf(!hasSupabase)('Password reset (live Supabase)', () => {
-	const url = env.PUBLIC_SUPABASE_URL!;
-	const anonKey = env.PUBLIC_SUPABASE_ANON_KEY!;
-	const admin: SupabaseClient = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY!, NO_PERSIST);
+	// Deferred to beforeAll rather than created at describe-body scope: the
+	// describe callback itself always runs during test collection, even for
+	// a skipped suite — only the `it`/`beforeAll` bodies are actually
+	// skipped. createClient() at the top level would run with undefined
+	// credentials in the `fast` CI job (found by actually running this in
+	// CI, prompt.txt Prompt F1/ADR-028 — "supabaseUrl is required" — same
+	// class of mistake ADR-028 itself fixed for rateLimit.ts).
+	let url: string;
+	let anonKey: string;
+	let admin: SupabaseClient;
 
 	const runId = randomUUID().slice(0, 8);
 	const createdUserIds: string[] = [];
+
+	beforeAll(() => {
+		url = env.PUBLIC_SUPABASE_URL!;
+		anonKey = env.PUBLIC_SUPABASE_ANON_KEY!;
+		admin = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY!, NO_PERSIST);
+	});
 
 	afterAll(async () => {
 		for (const id of createdUserIds) await admin.auth.admin.deleteUser(id);
