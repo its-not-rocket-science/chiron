@@ -331,6 +331,25 @@ export const CaseProvenanceSchema = z.object({
 });
 export type CaseProvenance = z.infer<typeof CaseProvenanceSchema>;
 
+/**
+ * `prompt.txt` Prompt G2: an authored (not inferred, not measured) US
+ * grade-level range this case's content was actually written for —
+ * `min`/`max` are inclusive integer grade numbers (e.g. `{ min: 7, max:
+ * 9 }` for a case aimed at middle-through-early-high-school students).
+ * See docs/CASE_AUTHORING.md's targetGradeBand section for how to choose
+ * one, and its worked reasoning for each of the three canonical cases.
+ * This is intent for the audience, not a claim about the case's own
+ * prose currently measuring within that band — see that doc section for
+ * why those can legitimately diverge.
+ */
+export const GradeBandSchema = z
+	.object({
+		min: z.number().int().min(1).max(12),
+		max: z.number().int().min(1).max(12)
+	})
+	.refine((b) => b.min <= b.max, { message: 'min must be <= max', path: ['min'] });
+export type GradeBand = z.infer<typeof GradeBandSchema>;
+
 // No PracticeCaseVersion type: Phase 2A's three cases are static,
 // hand-authored, fixed content (ADR-019) — nobody revises a published
 // case the way a teacher revises a LessonVersion. Versioning has no
@@ -347,6 +366,7 @@ export const PracticeCaseSchema = z
 		dispositionTags: z.array(z.enum(['approach_to_problem', 'approach_to_inquiry'])).min(1),
 		difficulty: z.enum(['intro', 'core', 'stretch']),
 		responseMode: ResponseModeSchema,
+		targetGradeBand: GradeBandSchema,
 		scenario: z.string().min(1),
 		claim: z.string().min(1),
 		evidencePool: z.array(EvidenceItemSchema).min(1),

@@ -15,6 +15,7 @@ function input(overrides: Partial<TutorPromptInput> = {}): TutorPromptInput {
 		learnerConfidence: 60,
 		learnerReasoning: 'The bypass could explain some of the drop.',
 		targetSkillTags: ['inference'],
+		targetGradeBand: { min: 9, max: 11 },
 		...overrides
 	};
 }

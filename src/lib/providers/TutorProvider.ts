@@ -14,6 +14,7 @@
 import type {
 	ConfidenceRating,
 	EvidenceSupportJudgment,
+	GradeBand,
 	TutorAction
 } from '$lib/domain/practiceSchemas';
 
@@ -52,5 +53,7 @@ export interface TutorProvider {
 		learnerConfidence: ConfidenceRating;
 		learnerReasoning: string;
 		targetSkillTags: readonly string[];
+		/** `prompt.txt` Prompt G2 — steers generated question phrasing toward this case's authored audience (docs/CASE_AUTHORING.md section 8), not a secret or scoring-relevant field. */
+		targetGradeBand: GradeBand;
 	}): Promise<{ action: TutorAction; questionText: string }>;
 }

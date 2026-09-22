@@ -58,7 +58,7 @@ export async function selectAndPhraseChallengeWithLLM(
 	createMessage: CreateMessageFn,
 	input: TutorPromptInput
 ): Promise<{ action: TutorAction; questionText: string }> {
-	const system = buildSystemPrompt();
+	const system = buildSystemPrompt(input.targetGradeBand);
 	const userMessage = buildUserMessage(input);
 	const allowedSourceText = [input.scenario, input.claim, ...input.revealedEvidenceTexts].join(' ');
 

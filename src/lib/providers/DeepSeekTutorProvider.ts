@@ -3,6 +3,7 @@ import { requireEnv } from '$lib/server/env';
 import type {
 	ConfidenceRating,
 	EvidenceSupportJudgment,
+	GradeBand,
 	TutorAction
 } from '$lib/domain/practiceSchemas';
 import { selectAndPhraseChallengeWithLLM, type CreateMessageFn } from './tutorCore';
@@ -83,6 +84,7 @@ export class DeepSeekTutorProvider implements TutorProvider {
 		learnerConfidence: ConfidenceRating;
 		learnerReasoning: string;
 		targetSkillTags: readonly string[];
+		targetGradeBand: GradeBand;
 	}): Promise<{ action: TutorAction; questionText: string }> {
 		return selectAndPhraseChallengeWithLLM(this.modelId, this.createMessage, input);
 	}

@@ -59,6 +59,7 @@ function validCase(overrides: Partial<PracticeCase> = {}): PracticeCase {
 		dispositionTags: ['approach_to_inquiry'],
 		difficulty: 'core',
 		responseMode: 'evidence_support_scale',
+		targetGradeBand: { min: 9, max: 11 },
 		scenario: 'A city reports fewer incidents after a new policy took effect.',
 		claim: 'The policy caused the drop in incidents.',
 		evidencePool: [e1, e2],
@@ -224,6 +225,28 @@ describe('PracticeCaseSchema', () => {
 
 	it('rejects an empty scenario', () => {
 		expect(() => PracticeCaseSchema.parse(validCase({ scenario: '' }))).toThrow();
+	});
+
+	// prompt.txt Prompt G2
+	it('rejects a targetGradeBand where min is greater than max', () => {
+		expect(() =>
+			PracticeCaseSchema.parse(validCase({ targetGradeBand: { min: 10, max: 8 } }))
+		).toThrow(/min must be <= max/);
+	});
+
+	it('accepts a targetGradeBand where min equals max (a single-grade band)', () => {
+		expect(() =>
+			PracticeCaseSchema.parse(validCase({ targetGradeBand: { min: 8, max: 8 } }))
+		).not.toThrow();
+	});
+
+	it('rejects a targetGradeBand outside the 1-12 range', () => {
+		expect(() =>
+			PracticeCaseSchema.parse(validCase({ targetGradeBand: { min: 0, max: 5 } }))
+		).toThrow();
+		expect(() =>
+			PracticeCaseSchema.parse(validCase({ targetGradeBand: { min: 8, max: 13 } }))
+		).toThrow();
 	});
 
 	it('rejects duplicate evidence revealOrder values', () => {

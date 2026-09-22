@@ -8,6 +8,7 @@
 import type {
 	ConfidenceRating,
 	EvidenceSupportJudgment,
+	GradeBand,
 	TutorAction
 } from '$lib/domain/practiceSchemas';
 import type { TutorProvider, TutorTranscriptTurn } from './TutorProvider';
@@ -34,6 +35,7 @@ export class MockTutorProvider implements TutorProvider {
 		learnerConfidence: ConfidenceRating;
 		learnerReasoning: string;
 		targetSkillTags: readonly string[];
+		targetGradeBand: GradeBand;
 	}): Promise<{ action: TutorAction; questionText: string }> {
 		const action = ACTION_CYCLE[input.transcript.length % ACTION_CYCLE.length];
 		return { action, questionText: mockQuestionText(action) };

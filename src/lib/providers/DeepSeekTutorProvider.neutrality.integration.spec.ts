@@ -59,7 +59,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DeepSeekTutorProvider } from './DeepSeekTutorProvider';
-import { tutorActionIds, type EvidenceSupportJudgment } from '$lib/domain/practiceSchemas';
+import {
+	tutorActionIds,
+	type EvidenceSupportJudgment,
+	type GradeBand
+} from '$lib/domain/practiceSchemas';
 import { getPracticeCase } from '$lib/domain/practiceCases';
 import { env } from '$lib/server/env';
 
@@ -90,6 +94,7 @@ interface PairedScenario {
 	claim: string;
 	revealedEvidenceTexts: readonly string[];
 	skillTags: readonly string[];
+	targetGradeBand: GradeBand;
 	/** Reasons toward the eventual authored target range, from only what's currently visible. */
 	learnerA: Learner;
 	/** Equally well-reasoned from only what's currently visible, but diverges from the eventual target. */
@@ -103,6 +108,7 @@ const PAIRS: PairedScenario[] = [
 		claim: causal.claim,
 		revealedEvidenceTexts: sortedEvidence(causal, 1),
 		skillTags: causal.skillTags,
+		targetGradeBand: causal.targetGradeBand,
 		learnerA: {
 			label: 'A (moves toward eventual target: uncertain)',
 			judgment: 'uncertain',
@@ -124,6 +130,7 @@ const PAIRS: PairedScenario[] = [
 		claim: source.claim,
 		revealedEvidenceTexts: sortedEvidence(source, 1),
 		skillTags: source.skillTags,
+		targetGradeBand: source.targetGradeBand,
 		learnerA: {
 			label: 'A (moves toward eventual target: unsupported)',
 			judgment: 'uncertain',
@@ -145,6 +152,7 @@ const PAIRS: PairedScenario[] = [
 		claim: risk.claim,
 		revealedEvidenceTexts: sortedEvidence(risk, 1),
 		skillTags: risk.skillTags,
+		targetGradeBand: risk.targetGradeBand,
 		learnerA: {
 			label: 'A (moves toward eventual target: somewhat_supported)',
 			judgment: 'somewhat_supported',
@@ -196,7 +204,8 @@ async function challenge(pair: PairedScenario, learner: Learner) {
 		learnerJudgment: learner.judgment,
 		learnerConfidence: learner.confidence,
 		learnerReasoning: learner.reasoning,
-		targetSkillTags: pair.skillTags
+		targetSkillTags: pair.skillTags,
+		targetGradeBand: pair.targetGradeBand
 	});
 }
 

@@ -23,6 +23,7 @@ what to type in.
   dispositionTags: ['approach_to_inquiry'],     // taxonomy.ts's two clusters
   difficulty: 'core',              // 'intro' | 'core' | 'stretch'
   responseMode: 'evidence_support_scale', // the only mode Phase 2A implements
+  targetGradeBand: { min: 9, max: 11 }, // authored intent — see section 8
   scenario: '...',                 // the situated framing
   claim: '...',                    // "how strongly does the evidence support this?"
   evidencePool: [ /* EvidenceItem[] */ ],
@@ -267,6 +268,98 @@ For every Phase 2A canonical case: `visibility: 'public-template'`,
 authorship in Phase 2A (ADR-019) — these fields exist for schema
 compatibility with the eventual Phase 2B shape, not because Phase 2A
 uses the other values.
+
+## 8. `targetGradeBand`
+
+An authored (not inferred, not measured) US grade-level range — `{ min,
+max }`, inclusive integers 1-12 — this case's _content_ was actually
+written for. Added by `prompt.txt` Prompt G2, after a QA sweep
+(`docs/qa/LLM_CROSS_CHECK_2026-09-21.md`) measured every existing
+case's Flesch-Kincaid reading level with nothing to compare it against:
+no case had ever had its intended audience captured anywhere in the
+schema.
+
+**This is intent for the audience, not a claim about the case's own
+prose currently measuring within that band.** A case's `scenario`/
+`claim`/`evidencePool` text is fixed, hand-authored content (ADR-019) —
+this field doesn't retroactively rewrite it, and a case's measured
+Flesch-Kincaid grade can legitimately sit above its `targetGradeBand`
+if the prose hasn't been tuned for it yet (see Case 3's entry below for
+exactly this). What `targetGradeBand` _does_ drive: the tutor prompt
+(`tutorPrompt.ts`) receives it and is instructed to phrase its
+generated follow-up questions for that band — the tutor's own wording
+is the part this field can actually steer live, per case, without
+touching hand-authored case text.
+
+**How to choose one:** reason about the actual _concept_ difficulty the
+case demands — not just vocabulary — and cross-check against the
+case's `difficulty` tag (`'intro'` cases should generally sit at or
+below `'core'` cases' bands). Write the reasoning down, the way the
+three canonical cases' choices are recorded below — a band chosen
+without stating why is indistinguishable from a guess.
+
+**The three canonical cases**, reasoned through directly against their
+actual content (not picked independent of it):
+
+- **`causal-inference-1`** (_"Did the speed cameras actually help?"_,
+  `difficulty: 'core'`) — **`{ min: 9, max: 11 }`**. The case demands
+  identifying a confounder (the new bypass route) and reasoning from a
+  comparison group (Maple Avenue, no camera, similar drop) to distrust
+  a naive before/after reading — genuine correlation-vs-causation
+  reasoning via control-group logic. That's high-school-level
+  statistical/scientific literacy (introductory research-methods or
+  early statistics), not a concept reliably taught before grade 9.
+  Measured case-text Flesch-Kincaid: 11.7 — inside the band.
+- **`relative-risk-1`** (_"Does the supplement really cut your risk in
+  half?"_, `difficulty: 'core'`) — **`{ min: 10, max: 12 }`**. Demands
+  distinguishing relative from absolute risk reduction and questioning
+  whether a single short trial's baseline generalizes — a more
+  demanding quantitative-literacy concept than Case 1's (relative-risk
+  framing is a specific, often college-prep-level numeracy topic), so
+  the band sits a notch higher. Measured case-text Flesch-Kincaid:
+  13.2 — at the top of the band, consistent with this being the most
+  conceptually demanding of the three.
+- **`source-provenance-1`** (_"Is the glowing blue fish really
+  confirmed?"_, `difficulty: 'intro'`) — **`{ min: 7, max: 9 }`**. The
+  core idea — many outlets repeating one uncredentialed press release
+  isn't the same as independent corroboration — is media-literacy
+  reasoning commonly introduced in middle school and reinforced through
+  high school, genuinely more broadly accessible than the other two
+  cases' statistics-adjacent reasoning, and it's explicitly the
+  `'intro'`-tagged case of the three. Measured case-text
+  Flesch-Kincaid: 12.7 — _above_ this band, a known, explicitly
+  accepted gap: this case's prose reads more densely than its actual
+  target audience, an authoring-quality issue Prompt G2 identifies but
+  doesn't fix (rewriting hand-authored case text is out of this
+  prompt's scope) — a real case-revision candidate for whoever next
+  edits this case's scenario/evidence wording.
+
+**Measured impact on the tutor's own generated questions** (Prompt
+G2's own instruction: re-measure, don't declare success by inspection).
+Before `tutorPrompt.ts`'s `buildSystemPrompt` received a grade-band
+phrasing instruction at all, `docs/qa/LLM_CROSS_CHECK_2026-09-21.md`
+measured mean tutor-question Flesch-Kincaid grades of causal-inference-1
+13.3, relative-risk-1 12.4, source-provenance-1 12.9 — all at or above
+each case's own dense case-text grade, the exact "runs even higher than
+the source" problem this prompt exists to fix. A live 4-question-per-
+case re-measurement after adding the instruction
+(`tutorReadability.integration.spec.ts`) found: causal-inference-1 7.2
+(target band 9-11), relative-risk-1 6.7 (target band 10-12),
+source-provenance-1 7.5 (target band 7-9). The original problem is
+conclusively fixed — no case runs anywhere near its case-text grade
+anymore, let alone above it. Landing precisely inside the authored
+band is a different, softer question: source-provenance-1 lands
+inside it; the other two now undershoot (the tutor writes more
+simply than the band technically calls for), an over-correction from
+a qualitative instruction ("short, plain sentences," which pulls FK
+grade down hard) alongside a numeric grade-range the model appears to
+weight less heavily. Left as-is rather than hand-tuned tighter against
+this one sample — this prompt's own instruction warns against
+eyeballing a diff to a specific number on model output that's
+inherently variable call-to-call; `tutorReadability.integration.spec.ts`
+stays in CI to catch a real future regression back toward the original
+"runs too high" direction, which is the failure mode this fix actually
+targets.
 
 ## Choosing an id
 

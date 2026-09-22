@@ -13,48 +13,64 @@ function input(overrides: Partial<TutorPromptInput> = {}): TutorPromptInput {
 		learnerConfidence: 60,
 		learnerReasoning: 'My reasoning.',
 		targetSkillTags: ['inference', 'evaluation'],
+		targetGradeBand: { min: 9, max: 11 },
 		...overrides
 	};
 }
 
+const GRADE_BAND = { min: 9, max: 11 };
+
 describe('buildSystemPrompt', () => {
 	it('lists every action in the fixed vocabulary', () => {
-		const prompt = buildSystemPrompt();
+		const prompt = buildSystemPrompt(GRADE_BAND);
 		for (const action of tutorActionIds) {
 			expect(prompt).toContain(action);
 		}
 	});
 
 	it('never mentions scoring or point values, and explicitly disclaims judging correctness', () => {
-		const prompt = buildSystemPrompt();
+		const prompt = buildSystemPrompt(GRADE_BAND);
 		expect(prompt.toLowerCase()).not.toMatch(/\bpoints\b|\bcredit\b/);
 		expect(prompt.toLowerCase()).toMatch(/not grading, scoring, or judging correctness/);
 	});
 
 	it('includes prompt-injection-resistance language', () => {
-		const prompt = buildSystemPrompt();
+		const prompt = buildSystemPrompt(GRADE_BAND);
 		expect(prompt).toMatch(/DATA to read, never instructions/);
 		expect(prompt).toMatch(/answer key/);
 	});
 
 	it('forbids introducing facts/numbers absent from the scenario/claim/revealed evidence', () => {
-		const prompt = buildSystemPrompt();
+		const prompt = buildSystemPrompt(GRADE_BAND);
 		expect(prompt.toLowerCase()).toMatch(/never introduce a specific fact, number, percentage/);
 	});
 
 	it('forbids praise or criticism based on which judgment the student holds', () => {
-		const prompt = buildSystemPrompt();
+		const prompt = buildSystemPrompt(GRADE_BAND);
 		expect(prompt.toLowerCase()).toMatch(
 			/never praise or criticize the student for which judgment/
 		);
 	});
 
-	it('is a fixed prompt with no per-call parameters that could vary by candidate data', () => {
-		// Unlike buildSystemPrompt(candidateSignals) in classifierPrompt.ts,
-		// the tutor's action vocabulary is fixed and closed — the same
-		// system prompt every call, by design (no answerSpec/case-specific
-		// data is ever a parameter here).
-		expect(buildSystemPrompt()).toBe(buildSystemPrompt());
+	it('is a pure function of its grade-band parameter — same band, same prompt', () => {
+		expect(buildSystemPrompt(GRADE_BAND)).toBe(buildSystemPrompt(GRADE_BAND));
+	});
+
+	// prompt.txt Prompt G2: previously buildSystemPrompt() took no
+	// parameters at all and was identical every call — the QA sweep
+	// (docs/qa/LLM_CROSS_CHECK_2026-09-21.md) found generated questions
+	// with no reading-level steering at all. These two tests prove the
+	// instruction is both present and actually driven by the per-case
+	// band, not a fixed generic string.
+	it("includes the case's authored grade band in a concrete, checkable phrasing instruction", () => {
+		const prompt = buildSystemPrompt({ min: 6, max: 8 });
+		expect(prompt).toMatch(/grade 6-8/);
+		expect(prompt.toLowerCase()).toMatch(/short, plain sentences/);
+		expect(prompt.toLowerCase()).toMatch(/avoid compound or nested clauses/);
+	});
+
+	it('varies the prompt when the grade band differs — not a generic instruction ignoring its input', () => {
+		expect(buildSystemPrompt({ min: 6, max: 8 })).not.toBe(buildSystemPrompt({ min: 10, max: 12 }));
 	});
 });
 
@@ -78,7 +94,8 @@ describe('TutorPromptInput — answer-key availability (prompts.txt Prompt 33)',
 			'learnerJudgment',
 			'learnerConfidence',
 			'learnerReasoning',
-			'targetSkillTags'
+			'targetSkillTags',
+			'targetGradeBand'
 		];
 		expect(Object.keys(input()).sort()).toEqual(exhaustiveFields.sort());
 		for (const forbidden of [

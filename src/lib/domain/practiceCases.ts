@@ -42,6 +42,11 @@ const causalInference: PracticeCase = {
 	dispositionTags: ['approach_to_inquiry', 'approach_to_problem'],
 	difficulty: 'core',
 	responseMode: 'evidence_support_scale',
+	// prompt.txt Prompt G2 — reasoning in docs/CASE_AUTHORING.md's
+	// targetGradeBand section: confounder identification and
+	// correlation-vs-causation reasoning via a comparison group is
+	// high-school-level statistical/scientific literacy.
+	targetGradeBand: { min: 9, max: 11 },
 	scenario:
 		"Ridgefield's city council announces that traffic accidents on Elm Street fell 18% in the " +
 		'six months after new speed cameras were installed there, and credits the cameras for the drop.',
@@ -149,6 +154,11 @@ const relativeRisk: PracticeCase = {
 	dispositionTags: ['approach_to_inquiry'],
 	difficulty: 'core',
 	responseMode: 'evidence_support_scale',
+	// prompt.txt Prompt G2 — reasoning in docs/CASE_AUTHORING.md's
+	// targetGradeBand section: relative-vs-absolute-risk numeracy is a
+	// more demanding quantitative-literacy concept than Case 1's, so this
+	// band sits a notch higher.
+	targetGradeBand: { min: 10, max: 12 },
 	scenario:
 		'A wellness newsletter advertises a new supplement: "Clinical trial proves it cuts your risk ' +
 		'of catching a cold in half!"',
@@ -237,6 +247,14 @@ const sourceProvenance: PracticeCase = {
 	dispositionTags: ['approach_to_inquiry', 'approach_to_problem'],
 	difficulty: 'intro',
 	responseMode: 'evidence_support_scale',
+	// prompt.txt Prompt G2 — reasoning in docs/CASE_AUTHORING.md's
+	// targetGradeBand section: media-literacy/source-credibility
+	// reasoning is more broadly accessible than the other two cases'
+	// statistical concepts, matching this case's 'intro' difficulty tag —
+	// the band sits lower even though the case's own prose currently
+	// measures a comparably high Flesch-Kincaid grade (see that doc
+	// section for why those aren't the same thing).
+	targetGradeBand: { min: 7, max: 9 },
 	scenario:
 		'A story claiming "a new species of deep-sea fish that glows bright blue has been discovered" ' +
 		'is spreading fast — dozens of news outlets and hundreds of social posts have covered it this week.',

@@ -38,7 +38,8 @@ function challenge(learnerReasoning: string) {
 		learnerJudgment: 'uncertain',
 		learnerConfidence: 55,
 		learnerReasoning,
-		targetSkillTags: practiceCase.skillTags
+		targetSkillTags: practiceCase.skillTags,
+		targetGradeBand: practiceCase.targetGradeBand
 	});
 }
 

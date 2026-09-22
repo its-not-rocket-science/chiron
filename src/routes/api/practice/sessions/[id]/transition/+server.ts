@@ -244,7 +244,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 				learnerJudgment: session.initialJudgment.judgment,
 				learnerConfidence: session.initialJudgment.confidence,
 				learnerReasoning: session.initialJudgment.reasoning,
-				targetSkillTags: practiceCase.skillTags
+				targetSkillTags: practiceCase.skillTags,
+				targetGradeBand: practiceCase.targetGradeBand
 			});
 
 			// tutorCore.ts already schema-validates and applies the
