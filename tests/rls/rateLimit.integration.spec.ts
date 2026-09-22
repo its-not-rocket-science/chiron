@@ -16,17 +16,18 @@ const hasSupabase = Boolean(
 	env.PUBLIC_SUPABASE_URL && env.PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// These four tests each make several sequential real round-trips to
+// Postgres — vitest's 5000ms default timeout was tight enough to time out
+// on a GitHub Actions runner (found by actually running this in CI,
+// prompt.txt Prompt F1/ADR-028; passed consistently on a local connection,
+// which is closer to the DB), hence the explicit 10_000ms below.
 describe.skipIf(!hasSupabase)('checkRateLimit (live Postgres-backed limiter)', () => {
 	it('allows requests up to the limit within the window', async () => {
 		const key = `test-${randomUUID()}`;
 		for (let i = 0; i < 5; i++) {
 			expect((await checkRateLimit(key, 5, 60_000)).allowed).toBe(true);
 		}
-	}, // 5 sequential real round-trips to Postgres — vitest's 5000ms default
-	// was tight enough to time out on a GitHub Actions runner (found by
-	// actually running this in CI, prompt.txt Prompt F1/ADR-028; passed
-	// consistently on a local connection, which is closer to the DB).
-	10_000);
+	}, 10_000);
 
 	it('blocks the request once the limit is exceeded, with a positive retry-after', async () => {
 		const key = `test-${randomUUID()}`;
