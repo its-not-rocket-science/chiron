@@ -132,6 +132,71 @@ describe('lesson analyzer — input to score to revise loop', () => {
 			.toHaveValue('A lesson about erosion.');
 	});
 
+	// prompt.txt Prompt G5 point 3: the scoring route already returns a
+	// specific message for both of these (src/routes/api/lessons/score/
+	// +server.ts) — a 429 with Retry-After for the rate limiter, a 502 for
+	// ScoringError — and the UI already reads `body.error?.message`
+	// (confirmed by the generic-500 test above). These two tests are the
+	// "missing test coverage that confirms it stays that way" the prompt
+	// itself asks for, not a fix — a future change that regresses either
+	// message to something generic should fail here, not silently ship.
+	it('shows the specific rate-limit message on a 429, not a generic fallback', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							error: { message: 'Too many scoring requests. Please wait a bit and try again.' }
+						}),
+						{ status: 429, headers: { 'Retry-After': '30' } }
+					)
+			)
+		);
+
+		const screen = await render(Page, { data: signedOutData, params: {}, form: null });
+
+		await screen.getByLabelText('Lesson plan').fill('A lesson about tectonic plates.');
+		await screen.getByRole('button', { name: 'Score this lesson' }).click();
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent('Too many scoring requests. Please wait a bit and try again.');
+		await expect
+			.element(screen.getByLabelText('Lesson plan'))
+			.toHaveValue('A lesson about tectonic plates.');
+	});
+
+	it('shows the specific provider-failure message on a 502, not a generic fallback', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							error: {
+								message:
+									'Scoring failed — the model did not return a valid result. Please try again.'
+							}
+						}),
+						{ status: 502 }
+					)
+			)
+		);
+
+		const screen = await render(Page, { data: signedOutData, params: {}, form: null });
+
+		await screen.getByLabelText('Lesson plan').fill('A lesson about the water cycle.');
+		await screen.getByRole('button', { name: 'Score this lesson' }).click();
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent('the model did not return a valid result');
+		await expect
+			.element(screen.getByLabelText('Lesson plan'))
+			.toHaveValue('A lesson about the water cycle.');
+	});
+
 	it('science-lab and history-essay lessons produce visibly different suggestion text (same mocked backend, real UI wiring)', async () => {
 		const scienceResult = scoringResultJson({
 			suggestions: [{ pillar: 'authenticity', text: 'Have students propose their own confound.' }]

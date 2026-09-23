@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 import type { LessonDetailRow } from './+page.server';
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 function lessonRow(overrides: Partial<LessonDetailRow> = {}): LessonDetailRow {
 	return {
@@ -143,5 +147,87 @@ describe('/lessons/[id] page (prompt.txt Prompt D2)', () => {
 
 		await screen.getByRole('button', { name: 'Cancel' }).click();
 		expect(screen.getByText('Delete this lesson permanently?').query()).toBeNull();
+	});
+
+	// prompt.txt Prompt G5 point 3: this page's re-score flow (Edit →
+	// Resubmit for re-scoring, handleResubmit in +page.svelte) had no
+	// error-path test coverage at all before this — a genuine gap this
+	// prompt closes, not just a re-confirmation. Both the scoring route's
+	// real 429 (rate limit) and 502 (provider failure) messages, proven
+	// to surface specifically rather than falling back to a generic string.
+	it('shows the specific rate-limit message on a 429 during re-scoring, and returns to the edit form', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							error: { message: 'Too many scoring requests. Please wait a bit and try again.' }
+						}),
+						{ status: 429, headers: { 'Retry-After': '30' } }
+					)
+			)
+		);
+
+		const screen = await render(Page, {
+			data: {
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				session: null,
+				lesson: lessonRow(),
+				isOwner: true
+			},
+			params: { id: 'lesson-1' },
+			form: null
+		});
+
+		await screen.getByRole('button', { name: 'Edit' }).click();
+		await screen.getByRole('button', { name: 'Resubmit for re-scoring' }).click();
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent('Too many scoring requests. Please wait a bit and try again.');
+		// Back on the edit form, not stuck on the "Scoring your revision…" state.
+		await expect
+			.element(screen.getByRole('button', { name: 'Resubmit for re-scoring' }))
+			.toBeVisible();
+	});
+
+	it('shows the specific provider-failure message on a 502 during re-scoring, and returns to the edit form', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							error: {
+								message:
+									'Scoring failed — the model did not return a valid result. Please try again.'
+							}
+						}),
+						{ status: 502 }
+					)
+			)
+		);
+
+		const screen = await render(Page, {
+			data: {
+				user: { id: 'user-1', email: 'teacher@example.com' },
+				session: null,
+				lesson: lessonRow(),
+				isOwner: true
+			},
+			params: { id: 'lesson-1' },
+			form: null
+		});
+
+		await screen.getByRole('button', { name: 'Edit' }).click();
+		await screen.getByRole('button', { name: 'Resubmit for re-scoring' }).click();
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent('the model did not return a valid result');
+		await expect
+			.element(screen.getByRole('button', { name: 'Resubmit for re-scoring' }))
+			.toBeVisible();
 	});
 });
