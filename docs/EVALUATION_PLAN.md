@@ -1,6 +1,6 @@
 # Chiron — Phase 2A Evaluation Plan
 
-`prompts.txt` Prompt 34. Implementation: `src/lib/domain/practiceEvaluation.ts`
+Implementation: `src/lib/domain/practiceEvaluation.ts`
 (pure computation, mirroring `practiceCalibration.ts`'s shape). Design
 rationale: `docs/DECISIONS.md` ADR-026 — this document is the practical,
 product-facing reference; ADR-026 is the "why built this way" record.
@@ -18,13 +18,13 @@ top:
    existing data)
 2. **Immediate learning process** — does the interaction do the things
    it's designed to do, moment to moment? (answerable now, from
-   existing + Prompt 34's new data)
+   existing + this instrumentation's new data)
 3. **Actual educational efficacy** — does using Chiron make students
    better critical thinkers? (**not** answerable from this
    instrumentation alone — see that section)
 
 Collapsing these three into one number, or treating a Tier 1/2 result
-as evidence for Tier 3, is exactly the overclaim `prompts.txt` Prompt 34
+as evidence for Tier 3, is exactly the overclaim this document
 explicitly warns against ("do not claim these metrics prove
 critical-thinking improvement"). This document is written to make that
 mistake hard to make by accident.
@@ -53,18 +53,18 @@ missing evidence?_
 | **Does challenge prompt new reasoning moves that weren't there before?** | Reasoning signals added after challenge                     | `computeSignalsAddedAfterChallenge` — diff of `initial_reasoning_signals` (new, migration 0012) against `scoring_events`' present-signal set |
 | What pedagogical moves does the tutor actually use?                      | Tutor action categories                                     | `computeTutorActionDistribution` — `practice_sessions.transcript[].action.action`                                                            |
 | Do judgments shift in a defensible direction after evidence?             | Initial vs. revised judgment distribution                   | `computeJudgmentDistribution` — `initial_judgment`/`revised_judgment`, both already stored                                                   |
-| Do stated confidence levels track actual defensibility?                  | Confidence calibration (Prompt 27, separate document)       | `docs/CALIBRATION.md`/`practiceCalibration.ts` — not re-described here, this plan just points at it                                          |
+| Do stated confidence levels track actual defensibility?                  | Confidence calibration (separate document)                  | `docs/CALIBRATION.md`/`practiceCalibration.ts` — not re-described here, this plan just points at it                                          |
 | Do students identify missing evidence when prompted?                     | `identifies_missing_evidence` signal rate, before vs. after | Same mechanism as "signals added after challenge," filtered to this one signal                                                               |
 
 **"Reasoning signals added after challenge" is the one metric this
-prompt required that genuinely didn't exist before.** Before this
-prompt, only the REVISED reasoning (written after the tutor's
+plan required that genuinely didn't exist before.** Before this
+instrumentation was added, only the REVISED reasoning (written after the tutor's
 challenge) was ever classified — there was no baseline to diff against,
 so "did challenge prompt something new" could not be answered honestly.
 `practice_attempts.initial_reasoning_signals` (migration 0012) adds one
 more classifier call, on the student's initial reasoning, specifically
 to make this a real diff instead of a documented gap. `ADR-024`'s
-Prompt 34 update has the full cost-tradeoff reasoning; this was
+update covering this has the full cost-tradeoff reasoning; this was
 confirmed with the user before building, since it directly raised the
 per-attempt model-call ceiling ADR-024 had just finished hardening.
 
@@ -99,8 +99,8 @@ Tier 1/2 metrics — however positive — are not evidence for it. A high
 completion rate says the product is usable. A high rate of "signals
 added after challenge" says the challenge mechanic prompts visible
 reasoning moves in the moment. Neither says a student is a better
-critical thinker a month later. `prompts.txt` Prompts 36-37 (real
-user-testing gate) are the point where this tier's actual research
+critical thinker a month later. Real user testing (see
+`docs/USER_TEST.md`) is the point where this tier's actual research
 design gets planned — Phase 2A's job was to make Tier 1/2 honestly
 measurable in the meantime, not to skip ahead and claim Tier 3.
 
@@ -130,8 +130,8 @@ the same principles, not just whether the mechanic runs:
   than reasoning about it as if it were generic.
 - **Mentoring**: the tutor never grades, never reveals the answer key
   (structurally — ADR-025's Tier 1 proof), and challenges gaps in
-  reasoning rather than disagreement with a target (Prompt 33's
-  neutrality suite). Tier 1's completion/abandonment data is the
+  reasoning rather than disagreement with a target (the model-
+  neutrality test suite). Tier 1's completion/abandonment data is the
   evidence of whether that mentoring stance actually keeps students in
   the loop rather than driving them off — a punitive-feeling
   "gotcha" tutor would show up here as elevated abandonment at
@@ -146,11 +146,12 @@ intends, before any claim about learning outcomes is even attempted.
 
 ## What is deliberately not instrumented
 
-- **Time per stage.** Prompt 34 itself gates this behind "if privacy
+- **Time per stage.** This plan itself gates this behind "if privacy
   policy permits." No privacy policy exists yet — `docs/STATUS.md`'s
   "Known privacy/security debt" section already records data retention
   and applicable regulation (FERPA/COPPA/other) as open, unanswered
-  governance questions (Prompt 30's review). Collecting new per-stage
+  governance questions (from the Phase 2A security review). Collecting
+  new per-stage
   timestamps now would mean guessing that a policy which doesn't exist
   would permit it. Total session duration
   (`practice_sessions.created_at` to `practice_attempts.created_at`) is
@@ -160,7 +161,7 @@ intends, before any claim about learning outcomes is even attempted.
 - **Cross-session engagement (repeat usage, streaks, etc.).** Real
   signal, but querying it meaningfully needs actual multi-session usage
   to exist first — building it against zero real students would be
-  exactly the "instrument without explicit need" Prompt 34 warns
+  exactly the "instrument without explicit need" this plan warns
   against.
 - **Any third-party analytics or tracking.** Not used, not planned. All
   data described in this document already lives in

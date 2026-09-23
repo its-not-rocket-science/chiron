@@ -1,4 +1,4 @@
-# Chiron — Design plan (`prompt.txt` Prompt D4, Part A)
+# Chiron — Design plan
 
 **Status:** Parts A–D complete (2026-09-22). This document is meant to be
 revised as the app evolves, not a one-time artifact — update it, don't
@@ -50,9 +50,9 @@ indigo): `slate-200` (0) → a light teal tint (1) → mid teal (2) →
 **Explicitly out of scope for this pass:** dark mode. Nothing in the app
 has any dark-mode support today (`grep -rn "dark:"` across `src/` returns
 nothing); adding it would be a real, separate feature decision, not
-something to fold silently into "the D4 visual pass." If wanted later,
+something to fold silently into this visual pass. If wanted later,
 `#0E8C6F`/`#B8860B` both have real headroom for dark-surface steps, but
-that's a future prompt's call, not assumed here.
+that's a future decision, not assumed here.
 
 ## Type
 
@@ -132,7 +132,7 @@ component is new; everything else keeps its existing props/behavior.
 
 ## What's not changing
 
-Per Prompt D4's own scope: information architecture and functionality stay
+Per this pass's own scope: information architecture and functionality stay
 as they are. This is a visual and responsive pass, not a redesign of what
 the app does — no new pages, no changed data flow, no changed component
 props beyond what's needed to apply the plan above.
@@ -148,7 +148,8 @@ assumed from the CSS alone:
 - **Nav** (`SiteNav`): header collapses to wordmark + hamburger below
   `md`; the combined mobile panel (primary nav + account items) opens and
   closes correctly; active-page underline/`aria-current` confirmed on a
-  real route. No changes needed beyond what D3 already built.
+  real route. No changes needed beyond what the earlier nav restructure
+  already built.
 - **Report card** (`/lessons/[id]`, confirmed representative of `/` and
   `/examples` — same component, same props): summary strip, bordered
   container, section dividers, and the gold-tinted Suggestions panel all
@@ -186,7 +187,6 @@ assumed from the CSS alone:
   multi-paragraph plan) — worth a real look with actual long-form content
   before calling this fully settled.
 - **Known pre-existing gap, not introduced by this pass**: the desktop
-  account `<details>` menu (built in D3) still doesn't close on an
-  outside click. Unchanged by D4 since D4 didn't touch `SiteNav`'s
-  interaction logic, only D3-era colors already covered in that prompt's
-  own commit.
+  account `<details>` menu (built during the earlier nav restructure)
+  still doesn't close on an outside click. Unchanged by this pass since
+  it didn't touch `SiteNav`'s interaction logic, only its colors.

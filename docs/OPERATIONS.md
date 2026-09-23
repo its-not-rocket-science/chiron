@@ -1,4 +1,4 @@
-# Operations (`prompt.txt` Prompts G3, G4)
+# Operations
 
 The first piece of actual production operations tooling in this project.
 Before this, a provider outage, a schema-validation regression after a
@@ -6,7 +6,7 @@ prompt change, or an RLS policy accidentally tightened too far would
 only be discovered by a user reporting it — nobody at Chiron would
 notice first. This document is what's monitored, how to check it, and
 what still needs a human with Sentry account access to finish setting
-up (this prompt can't create a Sentry organization or configure a
+up (an AI assistant can't create a Sentry organization or configure a
 dashboard alert rule on its own, the same kind of limitation ADR-028
 named for GitHub branch protection).
 
@@ -29,8 +29,9 @@ and client (`src/hooks.client.ts`):
 **Optional, not required.** Same contract as Supabase/DeepSeek/
 Anthropic elsewhere in this app (`src/lib/server/env.ts`): with no
 `PUBLIC_SENTRY_DSN` set, `Sentry.init` is never called, and the app
-runs identically to before this prompt — nothing breaks, nothing is
-silently degraded, there's just nowhere for reports to go yet.
+runs identically to before this feature existed — nothing breaks,
+nothing is silently degraded, there's just nowhere for reports to go
+yet.
 
 ## Why this was worth being careful about: the PII risk
 
@@ -68,9 +69,9 @@ place every report in this app goes through — `reportError` takes an
 value, so it structurally cannot forward more to Sentry than
 `console.error` already gets at each call site.
 
-**Verification, not just design intent** (Prompt G3, point 3's own
-instruction — a live check against a real Sentry dashboard isn't
-possible without an account, so this is the deterministic equivalent):
+**Verification, not just design intent** — a live check against a real
+Sentry dashboard isn't possible without an account, so this is the
+deterministic equivalent:
 
 - `src/lib/server/errorReporting.spec.ts` — proves `reportError`/
   `reportRlsDenial` can only ever send the exact string the caller
@@ -87,7 +88,7 @@ Every report carries a `chiron_category` tag (`errorReporting.ts`):
 | Tag                    | Fires when                                                                                                                                                      | What it signals                                                                                                                               |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `provider_error`       | A scoring/classifier/tutor LLM call fails after retries and the app falls back to a safe default (`DeepSeekScoringProvider`/`classifierCore.ts`/`tutorCore.ts`) | Repeated events in a short window = a vendor outage, not routine per-call flakiness                                                           |
-| `rate_limit_fail_open` | `checkRateLimit()`'s own documented fail-open path actually fires (`src/lib/server/rateLimit.ts`) — the exact bug ADR-028/Prompt F1 found and fixed             | Should be rare. Even one occurrence in production means the rate limiter's Postgres RPC is failing, not just theoretically capable of failing |
+| `rate_limit_fail_open` | `checkRateLimit()`'s own documented fail-open path actually fires (`src/lib/server/rateLimit.ts`) — the exact bug found and fixed while wiring CI (ADR-028)     | Should be rare. Even one occurrence in production means the rate limiter's Postgres RPC is failing, not just theoretically capable of failing |
 | `rls_denial`           | A request reached an authenticated route but was blocked from touching a specific resource it doesn't own or isn't admin of — see the exact call sites below    | A spike could mean either an attack or a policy regression — these look similar from the outside and both deserve attention                   |
 
 ### RLS-denial reporting scope — a deliberate boundary, not an oversight
@@ -129,14 +130,14 @@ this on:
    developing) — found in Sentry's project settings.
 3. **Optional — readable stack traces.** Set `SENTRY_AUTH_TOKEN`,
    `SENTRY_ORG`, `SENTRY_PROJECT` as CI secrets (`gh secret set`,
-   matching how `.github/workflows/ci.yml`'s live-job secrets were set
-   — Prompt F1) so `vite.config.ts`'s `sentrySvelteKit()` plugin uploads
+   matching how `.github/workflows/ci.yml`'s live-job secrets were set)
+   so `vite.config.ts`'s `sentrySvelteKit()` plugin uploads
    source maps on build. Without these, Sentry still receives every
    report — stack traces just point at minified code instead of
    original source.
 4. **Configure three alert rules**, one per tag in the table above —
-   exact conditions, since this prompt can't create them in a dashboard
-   it has no access to:
+   exact conditions given here, since these can't be created without
+   Sentry dashboard access:
    - **`provider_error` spike**: alert when events tagged
      `chiron_category:provider_error` exceed roughly 5 in a 10-minute
      window (tune once real traffic volume is known — this is a
@@ -165,11 +166,12 @@ different information, by the design above.
 
 ---
 
-# Content moderation (`prompt.txt` Prompt G4)
+# Content moderation
 
 Any user can mark their own lesson `public-template`, making it visible
-to any signed-in Chiron user regardless of org — and until this prompt,
-there was no way for anyone to remove one once it went live. This adds
+to any signed-in Chiron user regardless of org — and until this
+feature, there was no way for anyone to remove one once it went live.
+This adds
 a **Chiron-level** moderator capability (`supabase/migrations/
 0021_content_moderation.sql`), deliberately kept separate from
 `is_org_admin()` — an org admin has no special standing here, and this

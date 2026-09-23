@@ -1,8 +1,8 @@
 # Case Authoring Guide (Phase 2A)
 
 How to write a `PracticeCase` for Chiron's student practice mode.
-Written for whoever authors the three canonical cases (`prompts.txt`
-Prompt 21) and any case authored after them, while Phase 2A still means
+Written for whoever authors the three canonical cases and any case
+authored after them, while Phase 2A still means
 "three hand-authored, system-seeded cases" (ADR-019) — nothing here
 requires a UI or a database row; a case is a plain object validated
 against `PracticeCaseSchema` (`src/lib/domain/practiceSchemas.ts`).
@@ -210,7 +210,7 @@ top of the mechanic-level credit described below. `description` is
 never shown to the student; it's what a reviewer reads to sanity-check
 classifier output later. `relevantEvidenceItemIds` must reference real
 ids from this case's own `evidencePool` (validated at parse time) — it's
-how `updateCriterionConsistency.ts` (`prompts.txt` Prompt 26, ADR-022)
+how `updateCriterionConsistency.ts` (ADR-022)
 deterministically answers "did the promised evidence appear," without
 asking an LLM to re-judge that at scoring time. If your criterion is
 genuinely satisfied by more than one evidence item together, list all
@@ -273,7 +273,7 @@ uses the other values.
 
 An authored (not inferred, not measured) US grade-level range — `{ min,
 max }`, inclusive integers 1-12 — this case's _content_ was actually
-written for. Added by `prompt.txt` Prompt G2, after a QA sweep
+written for. Added after a QA sweep
 (`docs/qa/LLM_CROSS_CHECK_2026-09-21.md`) measured every existing
 case's Flesch-Kincaid reading level with nothing to compare it against:
 no case had ever had its intended audience captured anywhere in the
@@ -329,13 +329,13 @@ actual content (not picked independent of it):
   `'intro'`-tagged case of the three. Measured case-text
   Flesch-Kincaid: 12.7 — _above_ this band, a known, explicitly
   accepted gap: this case's prose reads more densely than its actual
-  target audience, an authoring-quality issue Prompt G2 identifies but
-  doesn't fix (rewriting hand-authored case text is out of this
-  prompt's scope) — a real case-revision candidate for whoever next
-  edits this case's scenario/evidence wording.
+  target audience, an authoring-quality issue identified but not fixed
+  here (rewriting hand-authored case text was out of scope) — a real
+  case-revision candidate for whoever next edits this case's
+  scenario/evidence wording.
 
-**Measured impact on the tutor's own generated questions** (Prompt
-G2's own instruction: re-measure, don't declare success by inspection).
+**Measured impact on the tutor's own generated questions** (measured
+directly, not declared fixed by inspection).
 Before `tutorPrompt.ts`'s `buildSystemPrompt` received a grade-band
 phrasing instruction at all, `docs/qa/LLM_CROSS_CHECK_2026-09-21.md`
 measured mean tutor-question Flesch-Kincaid grades of causal-inference-1
@@ -354,9 +354,9 @@ simply than the band technically calls for), an over-correction from
 a qualitative instruction ("short, plain sentences," which pulls FK
 grade down hard) alongside a numeric grade-range the model appears to
 weight less heavily. Left as-is rather than hand-tuned tighter against
-this one sample — this prompt's own instruction warns against
-eyeballing a diff to a specific number on model output that's
-inherently variable call-to-call; `tutorReadability.integration.spec.ts`
+this one sample — eyeballing a diff to a specific number on model
+output that's inherently variable call-to-call is exactly the trap to
+avoid; `tutorReadability.integration.spec.ts`
 stays in CI to catch a real future regression back toward the original
 "runs too high" direction, which is the failure mode this fix actually
 targets.

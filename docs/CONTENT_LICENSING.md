@@ -1,8 +1,8 @@
 # Chiron — Content Licensing (onboarding examples)
 
 **Status:** Active process doc. Covers all five seeded examples: the
-three from `prompts-onboarding-examples.txt` Prompts E1-E5, plus the two
-sourced by `prompt.txt` Prompt G6 (`ela-argumentative-writing`,
+original three (science-lab, history-essay, journalism), plus two
+sourced in a later pass (`ela-argumentative-writing`,
 `civics-current-events`).
 
 ## Why this exists
@@ -34,7 +34,8 @@ left to rot.
    deployment and do not seed NC-licensed content — this is why two
    otherwise-strong journalism candidates (Stanford History Education
    Group, CC BY-NC; SchoolJournalism.org, CC BY-NC-SA) were rejected
-   during the E1-E5 sourcing pass despite being good pedagogical fits.
+   during the original sourcing pass despite being good pedagogical
+   fits.
 3. **Verify the license on the live source page at ingestion time** —
    never from a search-engine snippet, a cached page, or a prior
    conversation's notes. A license can change; a page can be replaced; a
@@ -71,12 +72,12 @@ left to rot.
    `/lessons/[id]` (added after this note was first written) also renders
    `attributionName`/`attributionUrl`/`license` via the same `LicenseBadge`
    component `/examples` uses, whenever they're non-null — confirmed live
-   during the Prompt G6 pass, by duplicating a system-example lesson as a
+   during the second sourcing pass, by duplicating a system-example lesson as a
    real throwaway Supabase account and visiting the resulting private
    copy's `/lessons/[id]` page in a real browser, not just asserted from
    the component test suite.
 
-## The five examples seeded (Prompts E1-E5, plus Prompt G6)
+## The five examples seeded
 
 | Profile                   | Source                                                                                                                                                                                                                      | License               | Verified how                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -124,12 +125,12 @@ closing this out for real.
 
 ## Re-check log
 
-| Date       | Result                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-21 | OpenSciEd re-verified via direct fetch (CC-BY-4.0 for MS confirmed, unchanged). Both LOC sources still blocked (403); general policy re-confirmed via search. No license or content changes found. **Next re-check due: 2026-12-21.**                                                                                                                                                                                            |
-| 2026-09-23 | Two new examples seeded (Prompt G6): DocsTeach's Freedmen's Bureau lesson (CC0, ela-argumentative-writing) and the National Archives' Constitution at Work teacher guide (Public-Domain-US-Govt, civics-current-events). Both verified via direct live fetch at seed time — no bot-block exception needed for either. **Next re-check for these two due: 2026-12-23**, folded into the existing quarterly cadence going forward. |
+| Date       | Result                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-21 | OpenSciEd re-verified via direct fetch (CC-BY-4.0 for MS confirmed, unchanged). Both LOC sources still blocked (403); general policy re-confirmed via search. No license or content changes found. **Next re-check due: 2026-12-21.**                                                                                                                                                                                |
+| 2026-09-23 | Two new examples seeded: DocsTeach's Freedmen's Bureau lesson (CC0, ela-argumentative-writing) and the National Archives' Constitution at Work teacher guide (Public-Domain-US-Govt, civics-current-events). Both verified via direct live fetch at seed time — no bot-block exception needed for either. **Next re-check for these two due: 2026-12-23**, folded into the existing quarterly cadence going forward. |
 
-## Rejected candidates (journalism, during the E1-E5 sourcing pass)
+## Rejected candidates (journalism, during the original sourcing pass)
 
 - Stanford History Education Group material — CC BY-NC (rejected: rule 2)
 - SchoolJournalism.org material — CC BY-NC-SA (rejected: rule 2)
@@ -137,7 +138,7 @@ closing this out for real.
   listing itself (rejected: rule 3 — couldn't positively confirm a single,
   consistent license statement)
 
-## Rejected candidates (ela-argumentative-writing / civics-current-events, Prompt G6 sourcing pass)
+## Rejected candidates (ela-argumentative-writing / civics-current-events, second sourcing pass)
 
 - Yale National Initiative curriculum units (`teachers.yale.edu`) — a
   strong pedagogical fit ("Defensible: The Art of Writing a Persuasive

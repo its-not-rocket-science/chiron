@@ -1,6 +1,5 @@
 # Chiron — Scorer Testing
 
-`chiron_calibration_feedback_and_automation_prompts.txt` Prompt M4.
 Practical reference for testing Phase 1's lesson scorer. Design
 rationale lives in `docs/SCORER_CALIBRATION.md` (the diagnosis) and
 `docs/DECISIONS.md` (any ADR the calibration work produced); this

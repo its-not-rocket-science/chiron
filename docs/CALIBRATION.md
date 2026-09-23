@@ -1,6 +1,6 @@
 # Confidence Calibration
 
-`prompts.txt` Prompt 27. Implementation: `src/lib/domain/practiceCalibration.ts`.
+Implementation: `src/lib/domain/practiceCalibration.ts`.
 Design rationale recorded in `docs/DECISIONS.md` ADR-023 — this document
 is the practical reference; ADR-023 is the "why we didn't do it the
 way `docs/PHASE2.md` Section 4 originally sketched" record.
@@ -53,8 +53,8 @@ already on the attempt row.
 Not every case is a fair calibration signal. `answerSpec.calibrationEligible`
 (a case-authored boolean, `PracticeCaseSchema`) marks whether a case's
 confidence data should be included in calibration aggregation at all —
-`prompts.txt` Prompt 27's explicit instruction ("do not automatically
-treat every practice case as calibration-scorable").
+the explicit design instruction behind this field ("do not
+automatically treat every practice case as calibration-scorable").
 
 The schema enforces a structural rule, not just a convention:
 `calibrationEligible: true` requires `targetRange` to span **at most
@@ -94,7 +94,7 @@ both ends so a confidence of exactly 100 has somewhere to go.
   percentage — even if that percentage happens to be 100% or 0%. One or
   two attempts landing "in range" is not evidence of calibration in
   either direction, and displaying `100%` from `n=1` is exactly the
-  fake precision Prompt 27 warns against.
+  fake precision this design explicitly warns against.
 - The overall Brier score is `null` if there are fewer than 5
   calibration-eligible attempts in total, for the same reason.
 
@@ -135,12 +135,12 @@ actually useful signal, once there are enough attempts to trend.
   "insufficient data" for essentially every real user in the near
   term — building the breakdown now would be complexity with no
   reachable payoff yet. Worth revisiting once real attempt volume
-  exists (Phase 2A user testing, `prompts.txt` Prompts 36-37, or
+  exists (Phase 2A real-user testing — see `docs/USER_TEST.md` — or
   Phase 2B).
 - **No route or UI.** This document and `practiceCalibration.ts` cover
   the "storage" (already satisfied — no new column needed, everything
   is derivable from existing `PracticeAttempt` rows) and "reporting"
-  (the computation) halves of Prompt 27's ask. Surfacing a calibration
-  report to a student is `prompts.txt` Prompt 28's (student case UI) or
-  Prompt 29's (end-of-case feedback, which explicitly names a
-  "confidence/update summary") job, not built here.
+  (the computation) halves of this design's scope. Surfacing a
+  calibration report to a student is the student case UI's job, or the
+  end-of-case feedback screen's (which explicitly names a
+  "confidence/update summary") — not built here.

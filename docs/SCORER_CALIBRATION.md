@@ -1,12 +1,11 @@
 # Chiron — Scorer Calibration
 
-Manual calibration testing of Phase 1's lesson scorer, analysed per
-`chiron_calibration_feedback_and_automation_prompts.txt` Prompt M1,
-then verified live and fixed per Prompts M2-M5. **Status: M3's targeted
-fix is implemented and accepted (`SCORING_PROMPT_VERSION = '2026-08-26-v2'`)** —
-see "Results after the M3 fix" near the end of this document for the
+Manual calibration testing of Phase 1's lesson scorer, analysed once,
+then verified live and fixed in a follow-up pass. **Status: the
+targeted fix is implemented and accepted (`SCORING_PROMPT_VERSION = '2026-08-26-v2'`)** —
+see "Results after the fix" near the end of this document for the
 live before/after data that decision is based on. Everything above that
-section is the original M1 diagnosis, kept as the historical record of
+section is the original diagnosis, kept as the historical record of
 _why_ the fix looks the way it does, not rewritten to match the
 after-the-fact result.
 
@@ -48,7 +47,7 @@ students actually have to decide.
 as a firm failure — the fixture (a "pedestrianisation" scenario) fits
 neither Phase 1 subject profile cleanly, so this result doesn't
 isolate anything about science or history calibration specifically.
-Superseded by a profile-valid science fixture in M2 (`S-B2`).
+Superseded by a profile-valid science fixture added later (`S-B2`).
 
 **B3 — cosmetic WHO epidemiologist role play:** the manual summary
 table recorded Mentoring 3, but the detailed raw result recorded
@@ -59,7 +58,7 @@ cosmetics (badges, case files, decision tree) and scored the actual
 absence of dialogue/authenticity/mentoring. The summary/raw mismatch
 itself is the finding that matters most from B3 — manual transcription
 introduced an error a machine-generated report wouldn't have. This is
-the concrete case for M4's raw-capture requirement, not a scorer bug.
+the concrete case for the harness's raw-capture requirement, not a scorer bug.
 
 **C1 — predetermined ad claim, Evaluation not clearly covered:** good,
 matches expectation (a claim handed to students with no
@@ -107,7 +106,7 @@ or scorer-calibration fixture existed anywhere in the repo before this
 document — the "existing fertiliser/Roman Republic/WWI/Appeasement/
 propaganda/WHO/Cuban Missile Crisis" fixtures the feedback refers to
 were run by hand through the live UI, never captured as code. That's
-the concrete gap M2/M4 close.
+the concrete gap the fixtures and harness close.
 
 **1. Authenticity, especially History Essay — confirmed root cause.**
 `buildSystemPrompt()` in `scoringPrompt.ts` includes this line for
@@ -123,8 +122,8 @@ sources beyond copying a supplied interpretation. The rubric's own
 level-3 authenticity description ("genuine, messy, real-world problem
 as the central task") already asks the right question — the subject
 profile text sits right next to it with no instruction distinguishing
-"flavor" from "shortcut." This is exactly the mechanism M3 item 1 and
-item 2 target.
+"flavor" from "shortcut." This is exactly the mechanism the fix's item
+1 and item 2 target.
 
 **2. Inference when the conclusion is supplied — confirmed root
 cause.** The current prompt's Inference grounding
@@ -139,7 +138,7 @@ conclusion that follows from the evidence" under a permissive
 reading, since the text never says the conclusion must be the
 _student's own_, arrived at rather than confirmed. C3's medium-
 confidence "covered" result is consistent with the model applying
-exactly that permissive reading. M3 item 3 targets this directly.
+exactly that permissive reading. The fix's item 3 targets this directly.
 
 **3. Subject-profile grounding acting as a score shortcut — confirmed
 mechanism, same root cause as (1) generalized.** There is currently no
@@ -147,8 +146,8 @@ line anywhere in `buildSystemPrompt()` instructing the model to score
 against the general rubric first and use the subject profile only to
 flavor suggestions. The subject-context block sits directly adjacent
 to the rubric text with equal rhetorical weight, and nothing
-distinguishes "typical framing, an example" from "requirement." M3
-item 1 is a direct, minimal fix: add explicit language separating
+distinguishes "typical framing, an example" from "requirement." The
+fix's item 1 is a direct, minimal fix: add explicit language separating
 rubric-first scoring from profile-flavored suggestions, without
 touching the rubric or taxonomy themselves (per the feedback's own
 "do NOT rewrite all six CT skills again" instruction).
@@ -163,12 +162,12 @@ competing suggestion pattern in the prompt (controls/comparisons,
 conflicting evidence, an open decision, competing hypotheses), the
 model has little else to reach for when generating a suggestion. This
 is a real, minimal gap, not a case for rewriting the whole suggestion
-system — M3 item 4.
+system — fix item 4.
 
 **5. Variance — not a code defect, a harness gap.** The one-point
 run-to-run variance in the A1 table (and the summary/raw mismatches in
 B3/C8) aren't scorer bugs to fix with a prompt change — they're
-exactly what M4's harness (bands + paired contrasts + raw capture
+exactly what the harness (bands + paired contrasts + raw capture
 instead of hand-transcribed summaries) exists to handle correctly
 rather than either over-reacting to normal LLM variance or missing a
 transcription error a machine wouldn't make.
@@ -180,19 +179,19 @@ taxonomy or three-pillar rubric definitions themselves — both are
 Abrami-grounded and not implicated by any finding above. No broad
 change to Evaluation, Analysis, or Self-Regulation scoring — C1/C2,
 C5/C6, C7/C8 already discriminate correctly. Findings 1-4 above are
-targeted, minimal `buildSystemPrompt()` additions (M3), not a rewrite.
+targeted, minimal `buildSystemPrompt()` additions (the fix), not a rewrite.
 
-## Next steps (historical — all of M2-M5 below are now complete)
+## Next steps (historical — all of the following is now complete)
 
-M2: replace the informal manual fixtures referenced above with 19
+Replace the informal manual fixtures referenced above with 19
 fully-specified, profile-valid fixtures (8 science, 9 history, 2
 prompt-injection) — including explicit expected bands/skill states so
-the automated harness (M4) can evaluate them deterministically. M3:
-implement the four targeted `buildSystemPrompt()` changes this
-diagnosis identifies, and only those. M4: build the live calibration
-harness. M5: baseline, apply M3's fixes, rerun, compare.
+an automated harness can evaluate them deterministically. Implement the
+four targeted `buildSystemPrompt()` changes this diagnosis identifies,
+and only those. Build the live calibration harness. Then baseline,
+apply the fixes, rerun, and compare.
 
-## M2/M4: fixtures and harness built
+## Fixtures and harness built
 
 19 fixtures (`tests/calibration/fixtures/science/scienceFixtures.ts`,
 `history/historyFixtures.ts`, `injection/injectionFixtures.ts`), the
@@ -200,14 +199,14 @@ deterministic evaluator (`tests/calibration/evaluateCalibration.ts`,
 20 unit tests), and the CLI (`scripts/run-scorer-calibration.ts`,
 `npm run test:calibration`) — full usage in `docs/SCORER_TESTING.md`.
 
-One real architectural bug found and fixed while building M4, not
+One real architectural bug found and fixed while building the harness, not
 scoped to calibration specifically: `llmScoringCore.ts` (and Phase 2A's
 `classifierCore.ts`/`tutorCore.ts`) imported `MissingEnvError` from
 `env.ts`, which imports SvelteKit's `$env/dynamic/private` — a virtual
 module that only resolves inside SvelteKit's own Vite pipeline. That
 silently made those "vendor-agnostic core" modules impossible to import
-from a plain Node script, which M4 needs to do (call `scoreLesson()`
-directly, not through the HTTP API, per Prompt M4(c)). Fixed by
+from a plain Node script, which the harness needs to do (call
+`scoreLesson()` directly, not through the HTTP API). Fixed by
 extracting `MissingEnvError` into its own dependency-free file
 (`src/lib/server/envErrors.ts`); `env.ts` re-exports it so no other call
 site changed. `scripts/lib/providerFactory.ts` builds a real
@@ -231,18 +230,18 @@ now runs via `node --env-file=.env --import tsx ...`, and
 here because it's a genuine "found live, not found by review" case for
 the same discipline this whole calibration effort is about.
 
-## Results after the M3 fix
+## Results after the fix
 
 Full before/after reports: `artifacts/calibration/baseline.txt`
 (pre-fix, `SCORING_PROMPT_VERSION` `2026-08-22-v1`) and
 `artifacts/calibration/after-m3-fix.txt` (post-fix, `2026-08-26-v2`) —
 both real, live DeepSeek runs, 3 runs/fixture, 63 calls each.
 
-| Metric                       | Baseline (pre-fix) | After M3 fix |
-| ---------------------------- | :----------------: | :----------: |
-| Fixtures PASS/WARN/FAIL      |     9 / 3 / 5      |  11 / 6 / 0  |
-| Paired contrasts PASS/FAIL   |       3 / 3        |    6 / 0     |
-| Injection variants PASS/FAIL |       10 / 0       |    10 / 0    |
+| Metric                       | Baseline (pre-fix) | After fix  |
+| ---------------------------- | :----------------: | :--------: |
+| Fixtures PASS/WARN/FAIL      |     9 / 3 / 5      | 11 / 6 / 0 |
+| Paired contrasts PASS/FAIL   |       3 / 3        |   6 / 0    |
+| Injection variants PASS/FAIL |       10 / 0       |   10 / 0   |
 
 All 5 hard failures from the baseline are gone in the after-fix run,
 each matching exactly what the fix targeted:
@@ -252,12 +251,12 @@ each matching exactly what the fix targeted:
   inference) went from FAIL to PASS.
 - **S-C3**/**H-C3** (surface checklists): Self-Regulation wrongly
   covered 3/3 runs at baseline on _both_ fixtures → 0/3 on both after.
-  This wasn't one of the four findings M1 originally targeted — it
-  surfaced live, during the baseline run itself, as a real and
-  consistent failure (3/3, not a one-off), and M3 item 5's "unless new
-  fixtures show a failure" condition was met, so a targeted
-  Self-Regulation rule was added alongside the four M1 findings, not
-  instead of a broader rewrite.
+  This wasn't one of the four findings the original diagnosis
+  targeted — it surfaced live, during the baseline run itself, as a
+  real and consistent failure (3/3, not a one-off), and the fix's item
+  5 "unless new fixtures show a failure" condition was met, so a
+  targeted Self-Regulation rule was added alongside the four original
+  findings, not instead of a broader rewrite.
 - **H-B2** (curated sources, genuine inquiry): mean Authenticity 2.33 →
   3.00, now meeting the pillar-min-3 floor on every run. The paired
   contrast against H-B1 (predetermined interpretation) was already
@@ -267,7 +266,7 @@ each matching exactly what the fix targeted:
   baseline → 0/3 after, and its paired contrast against H-C2 improved
   from a 3-vs-1 margin to a clean 3-vs-0 one.
 
-**Accepted per the M5 acceptance criteria** (targeted hard failures
+**Accepted per the acceptance criteria** (targeted hard failures
 improve; good contrast fixtures do not regress; injection remains
 robust; strong lessons remain strong; variance does not materially
 worsen):
@@ -311,5 +310,5 @@ realism recommendation — consistent with the fix's actual instruction
 ("only recommend real data collection... when it would concretely
 improve the reasoning task"), not a miss. Worth a future automated
 fixture-level check if this regresses; not built now to avoid scope
-creep beyond M3's four named findings plus the one live-discovered
+creep beyond the fix's four named findings plus the one live-discovered
 Self-Regulation issue.
