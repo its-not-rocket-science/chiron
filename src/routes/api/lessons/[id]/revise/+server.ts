@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { RequestHandler } from './$types';
 import { ScoringResultSchema } from '$lib/domain/schemas';
 import { getSubjectProfile } from '$lib/domain/subjectProfiles';
+import { reportRlsDenial } from '$lib/server/errorReporting';
 
 const ReviseLessonRequestSchema = z.object({
 	subjectProfileId: z.string().min(1),
@@ -70,6 +71,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		.maybeSingle();
 	if (!lesson) return json({ error: { message: 'Lesson not found.' } }, { status: 404 });
 	if (lesson.owner_id !== locals.user.id) {
+		reportRlsDenial('lessons/[id]/revise: non-owner attempted to revise a lesson');
 		return json(
 			{ error: { message: 'You do not have permission to edit this lesson.' } },
 			{ status: 403 }

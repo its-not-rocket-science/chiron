@@ -18,6 +18,13 @@ const serverSchema = z.object({
 	SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 	ANTHROPIC_API_KEY: z.string().min(1).optional(),
 	DEEPSEEK_API_KEY: z.string().min(1).optional(),
+	// `prompt.txt` Prompt G3 — error monitoring. A DSN is an ingest
+	// endpoint identifier, not a secret credential (Sentry's own docs: safe
+	// to expose client-side), so it's PUBLIC_-prefixed and read the same way
+	// on both server and client init (docs/OPERATIONS.md). Optional, same
+	// "app boots fine without it" contract as every other integration here
+	// — see errorReporting.ts.
+	PUBLIC_SENTRY_DSN: z.string().min(1).optional(),
 	// Comma-separated allowlist of valid user-test cohort ids
 	// (chiron_calibration_feedback_and_automation_prompts.txt) — a
 	// simple server-side config mechanism rather than a new DB table,
@@ -51,6 +58,7 @@ export const env: ServerEnv = parseServerEnv({
 	SUPABASE_SERVICE_ROLE_KEY: privateEnv.SUPABASE_SERVICE_ROLE_KEY,
 	ANTHROPIC_API_KEY: privateEnv.ANTHROPIC_API_KEY,
 	DEEPSEEK_API_KEY: privateEnv.DEEPSEEK_API_KEY,
+	PUBLIC_SENTRY_DSN: publicEnv.PUBLIC_SENTRY_DSN,
 	USER_TEST_COHORTS: privateEnv.USER_TEST_COHORTS
 });
 

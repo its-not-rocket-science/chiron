@@ -28,6 +28,7 @@
  * the whole practice session.
  */
 import { MissingEnvError } from '$lib/server/envErrors';
+import { reportError } from '$lib/server/errorReporting';
 import type { SignalClassification } from '$lib/domain/practiceSchemas';
 import {
 	buildSystemPrompt,
@@ -70,9 +71,10 @@ export async function classifySignalsWithLLM(
 			if (attempt === MAX_ATTEMPTS) {
 				const safeSummary =
 					err instanceof Error ? `${err.name}: ${err.message}` : 'non-Error thrown';
-				console.error(
-					'Reasoning-signal classification failed, falling back to no signals:',
-					safeSummary
+				reportError(
+					'Reasoning-signal classification failed, falling back to no signals',
+					safeSummary,
+					'provider_error'
 				);
 			}
 		}

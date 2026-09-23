@@ -27,4 +27,13 @@ describe('parseServerEnv', () => {
 	it('rejects an empty-string secret rather than treating it as unset', () => {
 		expect(() => parseServerEnv({ ANTHROPIC_API_KEY: '' })).toThrow();
 	});
+
+	// prompt.txt Prompt G3
+	it('accepts an optional PUBLIC_SENTRY_DSN, and boots fine without one', () => {
+		expect(parseServerEnv({}).PUBLIC_SENTRY_DSN).toBeUndefined();
+		expect(
+			parseServerEnv({ PUBLIC_SENTRY_DSN: 'https://example@o0.ingest.sentry.io/1' })
+				.PUBLIC_SENTRY_DSN
+		).toBe('https://example@o0.ingest.sentry.io/1');
+	});
 });

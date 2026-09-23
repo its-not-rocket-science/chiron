@@ -8,6 +8,7 @@
  * ADR-006 and `docs/SECURITY.md` Section 6/9 both flagged as open.
  */
 import { getServiceRoleClient } from './serviceRoleClient';
+import { reportError } from './errorReporting';
 
 export interface RateLimitResult {
 	allowed: boolean;
@@ -43,7 +44,11 @@ export async function checkRateLimit(
 		});
 
 		if (error || !data || data.length === 0) {
-			console.error('Rate limit check failed, failing open:', error?.message ?? 'no rows returned');
+			reportError(
+				'Rate limit check failed, failing open',
+				error?.message ?? 'no rows returned',
+				'rate_limit_fail_open'
+			);
 			return { allowed: true };
 		}
 
@@ -53,7 +58,7 @@ export async function checkRateLimit(
 			: { allowed: false, retryAfterSeconds: row.retry_after_seconds };
 	} catch (err) {
 		const safeSummary = err instanceof Error ? `${err.name}: ${err.message}` : 'non-Error thrown';
-		console.error('Rate limit check failed, failing open:', safeSummary);
+		reportError('Rate limit check failed, failing open', safeSummary, 'rate_limit_fail_open');
 		return { allowed: true };
 	}
 }

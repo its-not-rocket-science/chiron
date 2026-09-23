@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { LessonLicense } from '$lib/domain/schemas';
+import { reportError } from '$lib/server/errorReporting';
 
 export interface ExampleLessonRow {
 	id: string;
@@ -74,7 +75,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// drops it the same way when saving a regular lesson) — so this
 		// select deliberately doesn't ask for a column that doesn't exist.
 		// Log defensively rather than silently returning an empty page.
-		console.error('Failed to load onboarding examples:', error.message);
+		reportError('Failed to load onboarding examples', error.message);
 	}
 
 	// Load-time idempotency signal (prompt.txt Prompt D1 part 2) — this must

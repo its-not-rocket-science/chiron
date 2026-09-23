@@ -7,6 +7,7 @@ import { DeepSeekScoringProvider } from '$lib/providers/DeepSeekScoringProvider'
 import { ScoringError } from '$lib/providers/ScoringProvider';
 import { SupabaseDataStore } from '$lib/providers/SupabaseDataStore';
 import { checkRateLimit } from '$lib/server/rateLimit';
+import { reportError } from '$lib/server/errorReporting';
 
 const RequestBodySchema = z.object({
 	lessonText: z.string().min(1),
@@ -90,7 +91,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		// logs on the request path a lesson plan travels through.
 		const safeErrorSummary =
 			err instanceof Error ? `${err.name}: ${err.message}` : 'non-Error thrown';
-		console.error('Unexpected error scoring lesson:', safeErrorSummary);
+		reportError('Unexpected error scoring lesson', safeErrorSummary, 'provider_error');
 		return json(
 			{ error: { message: 'Scoring is temporarily unavailable. Please try again later.' } },
 			{ status: 500 }

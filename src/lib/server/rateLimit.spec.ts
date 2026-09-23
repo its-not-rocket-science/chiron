@@ -19,6 +19,14 @@ vi.mock('./serviceRoleClient', () => ({
 	})
 }));
 
+// prompt.txt Prompt G3: this test only cares about checkRateLimit's own
+// fail-open return value, not error reporting — mocked out (rather than
+// letting the real @sentry/sveltekit load) because that module's real
+// first import is slow enough in a cold test worker to occasionally
+// exceed this file's default timeout under full-suite load, found by
+// actually running the full suite, not assumed.
+vi.mock('./errorReporting', () => ({ reportError: vi.fn() }));
+
 describe('checkRateLimit — fails open when Supabase is unconfigured', () => {
 	it('returns allowed: true rather than throwing, when getServiceRoleClient() throws synchronously', async () => {
 		const { checkRateLimit } = await import('./rateLimit');

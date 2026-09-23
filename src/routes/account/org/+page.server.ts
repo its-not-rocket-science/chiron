@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { reportRlsDenial } from '$lib/server/errorReporting';
 
 interface MembershipWithOrg {
 	id: string;
@@ -140,6 +141,7 @@ export const actions: Actions = {
 			.eq('id', inviteId)
 			.select('id');
 		if (error || !data || data.length === 0) {
+			if (!error) reportRlsDenial('org revokeInvite: non-admin attempted to revoke an invite');
 			return fail(403, { error: 'Could not revoke that invite. Are you an admin of this org?' });
 		}
 
@@ -163,6 +165,7 @@ export const actions: Actions = {
 			.eq('id', lessonId)
 			.select('id');
 		if (error || !data || data.length === 0) {
+			if (!error) reportRlsDenial('org toggleFeatured: non-admin attempted to feature a lesson');
 			return fail(403, { error: 'Could not update that lesson. Are you an org admin?' });
 		}
 

@@ -27,6 +27,7 @@
  * fixed string, so it cannot leak anything or invent a fact.
  */
 import { MissingEnvError } from '$lib/server/envErrors';
+import { reportError } from '$lib/server/errorReporting';
 import type { TutorAction } from '$lib/domain/practiceSchemas';
 import {
 	buildSystemPrompt,
@@ -77,9 +78,10 @@ export async function selectAndPhraseChallengeWithLLM(
 			if (attempt === MAX_ATTEMPTS) {
 				const safeSummary =
 					err instanceof Error ? `${err.name}: ${err.message}` : 'non-Error thrown';
-				console.error(
-					'Tutor challenge selection failed, falling back to a safe generic question:',
-					safeSummary
+				reportError(
+					'Tutor challenge selection failed, falling back to a safe generic question',
+					safeSummary,
+					'provider_error'
 				);
 			}
 		}

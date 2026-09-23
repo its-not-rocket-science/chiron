@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { reportRlsDenial } from '$lib/server/errorReporting';
 
 export interface LessonDetailRow {
 	id: string;
@@ -111,7 +112,10 @@ export const actions: Actions = {
 			.eq('owner_id', locals.user.id);
 
 		if (deleteError) return fail(400, { error: 'Could not delete this lesson. Please try again.' });
-		if (!count) return fail(403, { error: 'You do not have permission to delete this lesson.' });
+		if (!count) {
+			reportRlsDenial('lessons/[id] delete: non-owner attempted to delete a lesson');
+			return fail(403, { error: 'You do not have permission to delete this lesson.' });
+		}
 
 		throw redirect(303, '/lessons');
 	}
