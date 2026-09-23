@@ -152,10 +152,20 @@ engineering work Chiron could just go do.
   relied on for a real deployment.
 
 - **Onboarding-example content licensing** (`prompts-onboarding-
-examples.txt`, `docs/CONTENT_LICENSING.md`). Quarterly re-check run
-  2026-09-21 (`docs/CONTENT_LICENSING.md`'s "Re-check log"): OpenSciEd
-  re-verified via direct fetch, CC-BY-4.0 for Middle School unchanged.
-  Two of the three seeded system-example lessons (history-essay,
+examples.txt` + `prompt.txt` Prompt G6, `docs/CONTENT_LICENSING.md`).
+  **Five** system-example lessons are now live, one per subject
+  profile — the two added by Prompt G6 (`ela-argumentative-writing`,
+  `civics-current-events`) sourced from DocsTeach (National Archives
+  Foundation, CC0) and the National Archives itself
+  (Public-Domain-US-Govt) — both fetched and confirmed live, no
+  bot-block workaround needed for either, unlike the two Library of
+  Congress sources below. CC0 added as a new `license` enum value
+  (migration `0022_add_cc0_license.sql`) to represent DocsTeach's
+  voluntary public-domain dedication distinctly from
+  `Public-Domain-US-Govt`'s statutory one. Quarterly re-check run
+  2026-09-21 for the original three (`docs/CONTENT_LICENSING.md`'s
+  "Re-check log"): OpenSciEd re-verified via direct fetch, CC-BY-4.0
+  for Middle School unchanged. Two of those three (history-essay,
   journalism — both Library of Congress sources) still have their
   public-domain status corroborated via search-indexed content and
   LOC's general published copyright policy, not a direct live-page
@@ -164,11 +174,14 @@ examples.txt`, `docs/CONTENT_LICENSING.md`). Quarterly re-check run
   both a plain fetch and real-browser automation. A person should do a
   genuine direct read of both URLs at the next quarterly re-check (due
   2026-12-21, `docs/CONTENT_LICENSING.md` process, item 5) to close
-  this out. Migrations `0017_system_example_lessons.sql` and
-  `0018_copy_lesson_preserves_attribution.sql` are applied and
-  `npm run seed:onboarding-examples` has been run — confirmed 2026-09-20
-  by re-running with `--dry-run`, which reported all three examples
-  already seeded — so all three onboarding examples are live.
+  this out. Migrations `0017_system_example_lessons.sql`,
+  `0018_copy_lesson_preserves_attribution.sql`, and
+  `0022_add_cc0_license.sql` are all applied, and
+  `scripts/seed-onboarding-examples.ts` has been run for real against
+  the live project — all five onboarding examples are live, confirmed
+  by viewing `/examples` in a real browser under a disposable throwaway
+  account and confirming attribution survives duplication into a
+  private `/lessons/[id]` copy.
 
 ## Phase 2 status
 
@@ -463,6 +476,81 @@ run against the real Supabase project and real DeepSeek API. F1's
 confirmed green — F4's UI additionally walked through live in a real
 browser (promote/demote/remove, and the sole-admin-blocked state) using
 a disposable fixture org, not the developer's own account.
+
+### Classifier injection fix, reading-level fix, error monitoring, content moderation, "My lessons" usability, onboarding examples (`prompt.txt`, 2026-09-23)
+
+Six prompts (G1–G6), in the priority order the prompt itself gave: G1/G2
+first as substantive, previously-measured-but-unfixed gaps; G3/G4 next
+as operational maturity; G5/G6 smaller, slotted in around them.
+
+- **G1 — classifier injection fix.** Closes the gap the Phase 2A
+  completion report and the LLM cross-model QA sweep (above) had only
+  ever _measured_, not fixed: a "fake embedded JSON result" attack
+  where the injected payload contains the spoofed `evidenceQuote` text
+  the found-in-text check was looking for. `classifierCore.ts` adds
+  `looksLikeInjectedPayload()`/`findSuspiciousSpans()`
+  /`findBalancedJsonObjectSpans()`: an `evidenceQuote` is now rejected
+  if _any_ of its occurrences falls inside a suspicious span (a JSON
+  object, a code fence, or a paired bracket-tag region) — accept-if-ANY
+  was tried first and rejected once testing against real payloads
+  showed an attacker can just repeat the real quote outside the
+  injected block to slip past an ANY-based check. `docs/SECURITY.md`
+  Section 9 updated accordingly.
+- **G2 — reading-level fix.** Closes the tutor-question-phrasing vs.
+  case-reading-level gap the cross-model QA sweep surfaced.
+  `buildSystemPrompt()` (`tutorPrompt.ts`) now takes a `targetGradeBand`
+  and adds an explicit phrasing instruction; `docs/CASE_AUTHORING.md`
+  Section 8 documents the reasoning and measured before/after
+  Flesch-Kincaid grades for all three canonical cases.
+- **G3 — error monitoring.** `@sentry/sveltekit` wired into both
+  hooks, `sendDefaultPii: false`, no `tracesSampleRate`, explicit
+  `dataCollection` opt-outs (`stackFrameVariables`, `genAI`, `cookies`,
+  `httpHeaders`, `httpBodies`, `databaseQueryData`). One path to Sentry:
+  `reportError()`/`reportRlsDenial()` (`errorReporting.ts`). Two real
+  regressions found and fixed while wiring it: Sentry's
+  `autoInstrument` broke tests that call `load` directly, and
+  `@sentry/sveltekit`'s cold-import time blew a test timeout. New
+  `docs/OPERATIONS.md`.
+- **G4 — content moderation.** Chiron-level moderator capability for
+  public-template lessons: `chiron_moderators`/`lesson_reports`/
+  `moderation_actions` tables, `is_chiron_moderator()`/
+  `unpublish_lesson()`/`resolve_lesson_report()` (migration
+  `0021_content_moderation.sql`), a moderator-only `/admin/moderation`
+  queue (404 for non-moderators, deliberately no nav link), and a
+  Report action on `/library`. Found and fixed a real bug in
+  `unpublish_lesson()` while building it: `UPDATE ... RETURNING ...
+INTO` failed silently because the row's post-update state no longer
+  passed the table's own SELECT policy — fixed by selecting the needed
+  value in a separate statement before the update, while the row is
+  still in its pre-update, policy-passing state (a new, general
+  SECURITY DEFINER pitfall worth remembering alongside ADR-010's
+  others).
+- **G5 — "My lessons" usability.** Client-side search/filter on
+  `/lessons`; a server-computed stale-rubric indicator (comparing a
+  lesson's stored `prompt_version` against `SCORING_PROMPT_VERSION`)
+  with a re-score link; new error-path test coverage for the 429/502
+  re-scoring failure states on both `/` and `/lessons/[id]` (confirming
+  existing behavior stays correct, not fixing a bug).
+- **G6 — the last two onboarding examples.** Sourced and seeded
+  `ela-argumentative-writing` (DocsTeach/National Archives Foundation's
+  "How Effective Were the Efforts of the Freedmen's Bureau?", CC0) and
+  `civics-current-events` (the National Archives' "The Constitution at
+  Work: Middle School Edition" teacher guide, Public-Domain-US-Govt) —
+  see "Onboarding-example content licensing" above for the full
+  licensing account, including the candidates rejected along the way
+  (Yale National Initiative, Colorado Municipal League — both all-
+  rights-reserved; EDSITEment — inconsistent per-resource licensing and
+  blocked automated fetch, deprioritized rather than formally rejected).
+
+Full verification standard green after each of the six; live suites run
+against the real Supabase project. G3's Sentry wiring and G4's
+moderation queue were both walked through live in a real browser; G6's
+seeding and duplication-preserves-attribution behavior were verified
+live end to end using a disposable throwaway Supabase account (created
+and deleted via the service-role key, never the developer's own
+account). Test count after all six: **601 tests, 601 passing** — the
+`SupabaseDataStore` environment-artifact failure noted in earlier
+entries above no longer reproduces in this checkout.
 
 ## Explicitly deferred (not Phase 2A, no committed timeline)
 
