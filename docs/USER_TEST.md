@@ -1,26 +1,24 @@
 # Chiron — Phase 2A Real-User Test
 
-`prompts.txt` Prompt 36. This document is preparation only — a
-structured feedback instrument, a set of behavioural indicators, and
-instructions for running a small usability/learning test with 5-20
-testers on the three canonical practice cases. **Do not analyze results
-here.** Prompt 37 ("only after user testing") is where tester feedback
-and attempt data actually get read and evaluated — running that
-analysis before real data exists is explicitly out of scope for this
-document.
+This document is preparation only — a structured feedback instrument, a
+set of behavioural indicators, and instructions for running a small
+usability/learning test with 5-20 testers on the three canonical
+practice cases. **Do not analyze results here.** Reading and evaluating
+tester feedback and attempt data, only after real user testing has
+happened, is a separate, later step — running that analysis before real
+data exists is explicitly out of scope for this document.
 
 Signup requires no org (`practice`'s own route guard only checks
 `locals.user`), and `/practice` is reachable by any signed-in account
 with no other setup — the existing signup → `/practice` flow already
-lets 5-20 testers complete all three cases end to end. Prompt 36 needed
-one small addition on top of that, `computeConfidenceShift` in
+lets 5-20 testers complete all three cases end to end. This test needed
+one small addition on top of that: `computeConfidenceShift` in
 `practiceEvaluation.ts` (a pure function, same shape as its existing
 siblings), to answer one behavioural-indicator question honestly rather
 than by hand-waving.
 
-`chiron_calibration_feedback_and_automation_prompts.txt` then closed
-the two real gaps that pass left as manual work: there was no way to
-tag a specific batch of sessions as one test round (every
+A later pass closed two real gaps that had been left as manual work:
+there was no way to tag a specific batch of sessions as one test round (every
 `practice_sessions` row in the project was implicitly "the" cohort),
 and pulling data for review meant hand-querying Supabase. Now: a
 cohort-tagged entry link (`/practice?test=<id>`, an env-configured
@@ -47,8 +45,8 @@ would actually require.
 
 No data-retention policy or applicable-regulation decision exists yet
 for Chiron (`docs/STATUS.md`'s "Known privacy/security debt", from the
-Prompt 30 review) — that gap is specifically about deploying to real
-students in a school/district context. **Recruit adult testers for
+Phase 2A security review) — that gap is specifically about deploying to
+real students in a school/district context. **Recruit adult testers for
 this round, not minors** — this test doesn't need to wait on that
 policy decision if the testers aren't the population that decision is
 about. Tell testers plainly, before they start: their case attempts
@@ -121,38 +119,38 @@ question and response type are the same.
 7. At any point did Chiron seem to steer toward a particular answer
    rather than better reasoning? _(yes/no + optional open text — this
    is the single most important question on this list: it's the
-   tester-facing check on exactly what `prompts.txt` Prompt 33's
-   neutrality suite tests from the code side. A "yes" here, even from
-   one tester, is worth investigating specifically regardless of how
-   the rest of the instrument scores — and surfaces as a CRITICAL flag
-   in the generated report unconditionally.)_
+   tester-facing check on exactly what the code-side model-neutrality
+   test suite checks. A "yes" here, even from one tester, is worth
+   investigating specifically regardless of how the rest of the
+   instrument scores — and surfaces as a CRITICAL flag in the generated
+   report unconditionally.)_
 8. Would you voluntarily do another case? _(yes/no)_
 9. What worked best? _(open text, optional)_
 10. What most needs changing? _(open text, optional)_
 
-Narrower than Prompt 36's original 12-item instrument (dropped "did the
-tutor give away the answer" — folded into question 7's steering check
-— and "did the final explanation teach you anything," and merged
+Narrower than the original 12-item instrument (dropped "did the tutor
+give away the answer" — folded into question 7's steering check — and
+"did the final explanation teach you anything," and merged
 "schoolwork/interesting" into the two general open-text questions) —
 deliberately streamlined to what `user_test_feedback`
-(migration `0016`) actually stores, per this automation prompt's own
-Section 2 field list. If a richer instrument is ever wanted again, add
-the columns first; don't let the doc and the form drift apart a second
-time.
+(migration `0016`) actually stores. If a richer instrument is ever
+wanted again, add the columns first; don't let the doc and the form
+drift apart a second time.
 
 ## Behavioural indicators to review from attempt data
 
 Every indicator below is already computable from existing storage — no
 new instrumentation beyond `computeConfidenceShift`, added this pass.
 See `docs/EVALUATION_PLAN.md` for the fuller Tier 1/2/3 framing; this
-table is scoped specifically to what Prompt 36 asked for.
+table is scoped specifically to this test's own behavioural-indicator
+requirements.
 
 | Indicator                                                    | Function                                                                                                                                                                                                                        | Notes                                                                                                                                                                                                                                       |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Changes in reasoning signals after Socratic challenge        | `computeSignalsAddedAfterChallenge`                                                                                                                                                                                             | Already built, Prompt 34. Cross-reference against feedback question 2 — a tester who says "yes, I reconsidered" but shows zero added signals is worth a closer look at the transcript, not just the aggregate number.                       |
+| Changes in reasoning signals after Socratic challenge        | `computeSignalsAddedAfterChallenge`                                                                                                                                                                                             | Already built. Cross-reference against feedback question 2 — a tester who says "yes, I reconsidered" but shows zero added signals is worth a closer look at the transcript, not just the aggregate number.                                  |
 | Changes in confidence after material evidence                | `computeConfidenceShift` _(new this pass)_                                                                                                                                                                                      | Reports both a mean shift and a `movedMoreThanOneBand` count deliberately — a near-zero mean can hide real movement in both directions (some testers up, some down), which the mean alone would misread as "nobody changed their mind."     |
-| Mismatch between declared update criterion and actual update | `updateCriterionConsistency.ts` (`practice_attempts.update_criterion.consistency`)                                                                                                                                              | Already built, Prompt 26 (ADR-022) — a five-status result per attempt on `causal-inference-1` specifically (the only case using the mechanic). Read the status distribution across testers, not just individual cases.                      |
-| Frequency of unsupported certainty                           | `practiceCalibration.ts`'s bands, filtered to high-confidence bands with low `observedAccuracy`                                                                                                                                 | Already built, Prompt 27. With only 5-20 testers, `MIN_SAMPLE_SIZE` (5) may not be met in every band — expect some `null`s, don't force a reading out of too little data.                                                                   |
+| Mismatch between declared update criterion and actual update | `updateCriterionConsistency.ts` (`practice_attempts.update_criterion.consistency`)                                                                                                                                              | Already built (ADR-022) — a five-status result per attempt on `causal-inference-1` specifically (the only case using the mechanic). Read the status distribution across testers, not just individual cases.                                 |
+| Frequency of unsupported certainty                           | `practiceCalibration.ts`'s bands, filtered to high-confidence bands with low `observedAccuracy`                                                                                                                                 | Already built. With only 5-20 testers, `MIN_SAMPLE_SIZE` (5) may not be met in every band — expect some `null`s, don't force a reading out of too little data.                                                                              |
 | Use of uncertainty                                           | `computeJudgmentDistribution` (count of `'uncertain'` judgments) + signal frequency for `acknowledges_uncertainty` (from `computeSignalsAddedAfterChallenge`'s underlying counts, or a direct tally of `revisedSignalsPresent`) | Two angles on the same question: how often testers land on "uncertain" as a judgment, and how often they explicitly name uncertainty in their reasoning — these can diverge (a student can pick "uncertain" without ever articulating why). |
 
 ## Generating the report
@@ -191,8 +189,8 @@ mapping is not persisted) and contains no email address, Supabase user
 id, or auth token anywhere, including inside the raw per-tester
 transcript section — verified by
 `tests/userTest/userTestReportFormat.spec.ts`, not just asserted here.
-It also carries automated **triage flags** (CRITICAL/HIGH/MEDIUM,
-Section 8 of the automation prompt) — explicitly descriptive heuristics
+It also carries automated **triage flags** (CRITICAL/HIGH/MEDIUM) —
+explicitly descriptive heuristics
 for what to look at next, not efficacy claims or a pass/fail standard;
 the report itself repeats this disclaimer next to the flags.
 
@@ -201,8 +199,8 @@ the report itself repeats this disclaimer next to the flags.
 **Inspect `report.txt` first** — it's the self-contained, deliberately
 LLM-readable form (executive summary, triage flags, aggregate metrics,
 survey summaries, per-case metrics, per-tester anonymised paths, then
-full raw transcripts). Once real tester feedback and attempt data
-exist and a report has been generated from them: `prompts.txt` Prompt
-37 is the next step, not this document — feed it `report.txt`. Do not
-run that analysis against synthetic or anticipated data — it explicitly
-requires real results to exist first.
+full raw transcripts). Once real tester feedback and attempt data exist
+and a report has been generated from them, reading and evaluating that
+report is the next step, not this document — hand a reviewer
+`report.txt`. Do not run that analysis against synthetic or anticipated
+data — it explicitly requires real results to exist first.
