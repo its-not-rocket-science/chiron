@@ -22,6 +22,10 @@ const LICENSE_BADGES: Record<LessonLicense, LicenseBadgeInfo> = {
 		shortLabel: 'CC BY-SA 4.0',
 		label: 'Creative Commons Attribution-ShareAlike 4.0'
 	},
+	CC0: {
+		shortLabel: 'CC0 (Public Domain Dedication)',
+		label: 'Creative Commons CC0 1.0 Universal Public Domain Dedication'
+	},
 	'Public-Domain-US-Govt': {
 		shortLabel: 'Public Domain (U.S. Government)',
 		label: 'Public Domain — U.S. Government Work'

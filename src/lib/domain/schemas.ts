@@ -71,6 +71,7 @@ export type LessonOrigin = z.infer<typeof LessonOriginSchema>;
 export const LessonLicenseSchema = z.enum([
 	'CC-BY-4.0',
 	'CC-BY-SA-4.0',
+	'CC0',
 	'Public-Domain-US-Govt',
 	'Public-Domain-Expired',
 	'Other-Permission-Granted'

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Onboarding-example seed script (prompts-onboarding-examples.txt Prompt
- * E3). Seeds the three real, openly-licensed example lessons — see
+ * E3; extended by prompt.txt Prompt G6 with two more examples). Seeds the
+ * five real, openly-licensed example lessons — see
  * docs/CONTENT_LICENSING.md for the sourcing/verification process this
  * follows — as `origin = 'system_example'` rows (schema: Prompt E2,
  * migration 0017), scores each through the real scoring pipeline exactly
@@ -40,7 +41,12 @@ interface OnboardingExample {
 	/** Used as the idempotency key — one system-example lesson per attributionUrl. */
 	attributionUrl: string;
 	title: string;
-	subjectProfileId: 'science-lab' | 'history-essay' | 'journalism';
+	subjectProfileId:
+		| 'science-lab'
+		| 'history-essay'
+		| 'journalism'
+		| 'ela-argumentative-writing'
+		| 'civics-current-events';
 	fields: {
 		objectives: string;
 		teacherScript: string;
@@ -48,7 +54,7 @@ interface OnboardingExample {
 		assessment: string;
 	};
 	attributionName: string;
-	license: 'CC-BY-4.0' | 'Public-Domain-US-Govt';
+	license: 'CC-BY-4.0' | 'CC0' | 'Public-Domain-US-Govt';
 	licenseNote: string | null;
 }
 
@@ -61,7 +67,9 @@ interface OnboardingExample {
 // fetch and real-browser automation) and are instead corroborated via
 // LOC's own published copyright policy plus independent search-indexed
 // descriptions of both pages' content, not a direct live-page read — a
-// documented judgment call, not a default.
+// documented judgment call, not a default. The two Prompt G6 additions
+// (ela-argumentative-writing, civics-current-events) were both directly
+// fetched and confirmed live — no bot-block workaround needed for either.
 const EXAMPLES: OnboardingExample[] = [
 	{
 		attributionUrl: 'https://openscied.org/instructional-materials/6-2-thermal-energy/',
@@ -120,6 +128,47 @@ const EXAMPLES: OnboardingExample[] = [
 				'In small groups, students examine a digitized 1898 New York Journal or New York World front page covering the Maine\'s sinking (from the Library of Congress\'s Chronicling America collection), applying the four newspaper-analysis prompts above. Groups then discuss what in the coverage goes beyond what could have actually been confirmed within days of the explosion, and how competition between the Journal and World for readers may have shaped that gap — a real historical instance of "yellow journalism."',
 			assessment:
 				'Students write a short response identifying one specific claim or framing choice on the front page that goes beyond what could be verified at the time, and explaining what evidence would have been needed to actually substantiate it.'
+		}
+	},
+	{
+		attributionUrl:
+			'https://docsteach.org/lesson/how-effective-were-the-efforts-of-the-freedmens-bureau/',
+		title:
+			'How Effective Were the Efforts of the Freedmen’s Bureau? (National Archives, DocsTeach)',
+		subjectProfileId: 'ela-argumentative-writing',
+		attributionName: 'National Archives (DocsTeach)',
+		license: 'CC0',
+		licenseNote:
+			'Adapted from the DocsTeach.org "Weighing the Evidence" activity "How Effective were the Efforts of the Freedmen’s Bureau?" DocsTeach (a National Archives Foundation educational site) states on this specific lesson’s own page that its teaching activities carry a CC0 Public Domain Dedication, distinct from the rest of the site’s content, which is licensed CC BY-NC-SA — confirmed directly on the live lesson page, not assumed from the site-wide statement alone. The primary-source Freedmen’s Bureau records students weigh are themselves independently public domain as US federal government records held by the National Archives.',
+		fields: {
+			objectives:
+				"Students will analyze real primary-source Freedmen's Bureau records, weigh conflicting evidence about the Bureau's effectiveness, and construct and defend a written argumentative position on whether its efforts genuinely advanced formerly enslaved people's rights or largely preserved existing power structures.",
+			teacherScript:
+				'Driving question: "Did the Freedmen’s Bureau’s efforts genuinely advance the rights of formerly enslaved people, or did they mostly leave existing power structures in place?" Model analyzing one real document with the whole class first — a labor agreement or a freedman’s land application — asking what it actually shows versus what it doesn’t. Then assign each small group a different real Bureau document and ask them to decide which of the two interpretations the evidence in their document actually supports.',
+			studentActivities:
+				"In small groups, students each examine one real Freedmen's Bureau primary source (a labor agreement, an application for land, a land certificate, a labor contract) and record what it does and doesn't show about the Bureau's role. Groups then place their document's evidence on a shared \"weighing the evidence\" scale, arguing for the interpretation their document most supports, and respond directly to at least one other group whose document points the other way.",
+			assessment:
+				"Students write a short argumentative response taking a clear position — that the Bureau's efforts genuinely advanced rights, or that they mostly preserved existing power structures — citing specific evidence from at least two of the primary sources examined in class, and directly addressing the strongest evidence against their own position."
+		}
+	},
+	{
+		attributionUrl:
+			'https://www.archives.gov/files/education/distance-learning/constitution-at-work-teacher-guide-ms.pdf',
+		title: 'The Constitution at Work: Middle School Edition (National Archives)',
+		subjectProfileId: 'civics-current-events',
+		attributionName: 'National Archives and Records Administration',
+		license: 'Public-Domain-US-Govt',
+		licenseNote:
+			'Adapted from the National Archives’ "The Constitution at Work: Middle School Edition" distance-learning teacher guide (grades 6–8), staff-authored US federal government work product and therefore public domain — fetched and confirmed directly at archives.gov, no bot-block workaround needed. The primary-source documents referenced in the guide’s "Meet the Documents" pre-program activity are themselves independently public domain federal records held by the National Archives.',
+		fields: {
+			objectives:
+				'Students will examine real primary-source government documents connected to specific constitutional powers, determine whether each document shows one branch of government checking another or power being shared between the federal government and the states, and draw an evidence-based conclusion about how checks and balances actually operate in practice, not just in the text of the Constitution.',
+			teacherScript:
+				'Driving question: "Does this real government document show one branch of government checking another, power shared among the branches, or power shared between the federal government and the states?" Model the process with one real document first — identify what type of document it is, who created it, and which article and section of the Constitution it connects to — before assigning each group its own document set.',
+			studentActivities:
+				'In small groups, students each analyze a real primary-source government document, using a structured "meet the document → observe its parts → make sense of it → use it as evidence" process. Each group connects its document to the specific constitutional provision it demonstrates and records, on a shared graphic organizer, what power the document shows and how that power is checked or shared.',
+			assessment:
+				'Students write a short response identifying the real government document they examined, naming the specific constitutional power it demonstrates, and explaining — citing the document itself as evidence — whether it shows one branch checking another or power shared between the federal government and the states.'
 		}
 	}
 ];
