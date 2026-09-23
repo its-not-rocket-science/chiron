@@ -76,5 +76,36 @@ export const actions: Actions = {
 		}
 
 		return { copiedLessonId: data as string };
+	},
+
+	// prompt.txt Prompt G4: any signed-in user can flag a public-template
+	// lesson as inappropriate — logged for a Chiron moderator to review
+	// (docs/OPERATIONS.md), never auto-unpublished on a report (that would
+	// be its own abuse vector — one report shouldn't be able to take down
+	// another teacher's lesson). A plain insert, not an RPC — reporting
+	// needs no cross-table check (lesson_reports' own RLS policy is just
+	// "reporter_id = auth.uid()", supabase/migrations/0021), and
+	// deliberately doesn't `.select()` the inserted row back: this table's
+	// SELECT policy only grants moderators read access, and Postgres
+	// re-checks a returned row against the SELECT policy (ADR-010 point
+	// 3) — a reporter asking for their own row back would get nothing,
+	// not because the insert failed.
+	reportLesson: async ({ request, locals }) => {
+		if (!locals.supabase || !locals.user)
+			return fail(500, { error: 'Accounts are not configured yet.' });
+
+		const formData = await request.formData();
+		const lessonId = formData.get('lessonId');
+		const reason = formData.get('reason');
+		if (typeof lessonId !== 'string' || typeof reason !== 'string' || !reason.trim()) {
+			return fail(400, { error: 'Please explain why you are reporting this lesson.' });
+		}
+
+		const { error } = await locals.supabase
+			.from('lesson_reports')
+			.insert({ lesson_id: lessonId, reporter_id: locals.user.id, reason: reason.trim() });
+		if (error) return fail(400, { error: 'Could not submit this report. Please try again.' });
+
+		return { reportedLessonId: lessonId };
 	}
 };

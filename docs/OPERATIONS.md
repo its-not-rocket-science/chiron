@@ -1,4 +1,4 @@
-# Operations (`prompt.txt` Prompt G3)
+# Operations (`prompt.txt` Prompts G3, G4)
 
 The first piece of actual production operations tooling in this project.
 Before this, a provider outage, a schema-validation regression after a
@@ -162,3 +162,112 @@ unhandled exception `handleError` caught. Every event's message is
 already the same safe summary `console.error` would have logged —
 checking Sentry vs. checking server logs should never show materially
 different information, by the design above.
+
+---
+
+# Content moderation (`prompt.txt` Prompt G4)
+
+Any user can mark their own lesson `public-template`, making it visible
+to any signed-in Chiron user regardless of org — and until this prompt,
+there was no way for anyone to remove one once it went live. This adds
+a **Chiron-level** moderator capability (`supabase/migrations/
+0021_content_moderation.sql`), deliberately kept separate from
+`is_org_admin()` — an org admin has no special standing here, and this
+capability has no relationship to any one org. Live adversarial tests:
+`tests/rls/contentModeration.spec.ts`.
+
+## Who has moderator access today
+
+Nobody, by default. Granting it is a **manual, service-role-only
+action** — there is no self-service UI and deliberately no client-facing
+way to grant it at all (see "Why this can't be self-granted" below).
+To check or change who currently holds it, run against the Supabase SQL
+editor:
+
+```sql
+-- Who currently has moderator access:
+select cm.user_id, p.display_name, p.email, cm.granted_at
+from public.chiron_moderators cm
+join public.profiles p on p.id = cm.user_id;
+
+-- Grant it to someone (look up their id from `profiles` by email first):
+insert into public.chiron_moderators (user_id) values ('<their-profile-id>');
+
+-- Revoke it:
+delete from public.chiron_moderators where user_id = '<their-profile-id>';
+```
+
+This is intentionally minimal — a flag one or two known people hold,
+not a roles system. Build something heavier only once there's an actual
+need for more than a handful of moderators.
+
+## Why this can't be self-granted
+
+`chiron_moderators` has **no INSERT/UPDATE/DELETE policy for
+`authenticated` at all** — the same "no direct write access,
+service-role-only" pattern ADR-020 already established for the Phase 2A
+FSM tables. This isn't a convention someone could accidentally weaken by
+adding a policy that seems reasonable in isolation (e.g. "an existing
+moderator can grant another moderator") — no such policy exists, and
+`tests/rls/contentModeration.spec.ts` adversarially confirms both a
+plain self-grant attempt and an org-admin trying to grant it to someone
+else are rejected.
+
+## How a report reaches a moderator
+
+1. Any signed-in user can click **Report** on a public-template lesson
+   in `/library` and give a short reason — a plain `INSERT` into
+   `lesson_reports` (RLS: `reporter_id = auth.uid()`), not an RPC, since
+   reporting needs no cross-table check and grants no access to
+   anything by existing.
+2. Reports are **never auto-actioned** — inserting one doesn't unpublish
+   anything or notify anyone in real time. This is deliberate: an
+   auto-unpublish-on-report path would itself be an abuse vector (report
+   a competitor's/colleague's lesson to take it down).
+3. A moderator reviews the open queue at `/admin/moderation` (no nav
+   link — see "Discoverability" below) and either **Dismiss**es a report
+   (no action, just marks it resolved) or **Unpublish**es the lesson
+   (returns it to `private`, with a required reason, logged in
+   `moderation_actions`, and any other open reports on that same lesson
+   are auto-resolved too).
+
+## What "inappropriate" means for this product
+
+Chiron's public-template library is a **lesson-plan sharing feature**
+between teachers — a narrower, different risk surface than general
+user-generated content (a comment section, a marketplace, social media).
+There's no rich media, no direct messaging, no public profile pages —
+just lesson-plan text, openly shared by a teacher for other teachers to
+copy. Grounds for unpublishing, given that scope:
+
+- **Not actually a lesson plan** — spam, an advertisement, content
+  unrelated to teaching.
+- **Plagiarized or misattributed** — presented as original when it
+  isn't (distinct from the system-example onboarding lessons, which
+  have their own verified-license/attribution process —
+  `docs/CONTENT_LICENSING.md` — and aren't reachable through this
+  report flow at all, since `/library` only lists `origin = 'user'`
+  lessons).
+- **Contains material inappropriate for a K-12-facing teaching
+  resource** — content no reasonable teacher would consider fit to
+  share as a lesson plan.
+- **Contains real student information** — a violation of this app's own
+  privacy posture (`/privacy`) applied to shared content, not just
+  collected-by-the-app data.
+
+Do **not** import a generic trust-and-safety policy wholesale — this
+product has no open-ended free text feed, no strangers messaging each
+other, no algorithmic amplification; the actual risk surface is "a
+teacher shared something as a lesson plan that shouldn't be publicly
+shared as one," and the above list reflects that, not a larger set of
+concerns this product doesn't actually have.
+
+## Discoverability — a deliberate omission, not an oversight
+
+`/admin/moderation` has no link anywhere in the app's navigation.
+Moderators (currently one or two known people) navigate to it directly
+by URL. Adding a conditionally-shown nav link would mean computing
+"is this user a moderator" on every single page load for every user —
+a real per-request cost paid by everyone to serve a feature `docs/
+OPERATIONS.md` itself says is for "maybe one or two people" today.
+Revisit once there's a real moderator team, not before.

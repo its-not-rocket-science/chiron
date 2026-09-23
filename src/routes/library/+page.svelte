@@ -7,6 +7,10 @@
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
 	let submittingId = $state<string | null>(null);
+	// prompt.txt Prompt G4: which public-template lesson's report form (if
+	// any) is currently expanded — a plain id, not a Set, since only one
+	// report form is open at a time.
+	let reportingLessonId = $state<string | null>(null);
 
 	const scoreOptions = [0, 1, 2, 3];
 
@@ -206,27 +210,87 @@
 									</p>
 								{/if}
 							</div>
+							<div class="flex flex-col items-end gap-2">
+								<form
+									method="POST"
+									action="?/saveCopy"
+									use:enhance={() => {
+										submittingId = lesson.id;
+										return async ({ update }) => {
+											await update();
+											submittingId = null;
+										};
+									}}
+								>
+									<input type="hidden" name="lessonId" value={lesson.id} />
+									<button
+										type="submit"
+										disabled={submittingId === lesson.id}
+										class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+									>
+										{submittingId === lesson.id ? 'Copying…' : 'Save a copy'}
+									</button>
+								</form>
+								{#if form?.reportedLessonId !== lesson.id}
+									<button
+										type="button"
+										onclick={() =>
+											(reportingLessonId = reportingLessonId === lesson.id ? null : lesson.id)}
+										class="text-xs text-slate-400 underline hover:text-slate-600"
+									>
+										Report
+									</button>
+								{/if}
+							</div>
+						</div>
+
+						{#if form?.reportedLessonId === lesson.id}
+							<p role="status" class="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+								Thanks — this has been reported for review.
+							</p>
+						{:else if reportingLessonId === lesson.id}
 							<form
 								method="POST"
-								action="?/saveCopy"
+								action="?/reportLesson"
+								class="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3"
 								use:enhance={() => {
 									submittingId = lesson.id;
 									return async ({ update }) => {
 										await update();
 										submittingId = null;
+										reportingLessonId = null;
 									};
 								}}
 							>
 								<input type="hidden" name="lessonId" value={lesson.id} />
-								<button
-									type="submit"
-									disabled={submittingId === lesson.id}
-									class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-								>
-									{submittingId === lesson.id ? 'Copying…' : 'Save a copy'}
-								</button>
+								<label for="report-reason-{lesson.id}" class="text-xs font-medium text-slate-700">
+									Why are you reporting this lesson?
+								</label>
+								<textarea
+									id="report-reason-{lesson.id}"
+									name="reason"
+									required
+									rows="2"
+									class="rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none"
+								></textarea>
+								<div class="flex gap-2">
+									<button
+										type="submit"
+										disabled={submittingId === lesson.id}
+										class="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+									>
+										Submit report
+									</button>
+									<button
+										type="button"
+										onclick={() => (reportingLessonId = null)}
+										class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+									>
+										Cancel
+									</button>
+								</div>
 							</form>
-						</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
